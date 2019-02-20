@@ -1,0 +1,33 @@
+{
+  "name": "mongo-to-elastic-dump",
+  "version": "1.0.0",
+  "dependencies": {
+    "cli-progress": "^2.1.1",
+    "command-line-args": "^5.0.2",
+    "elasticsearch": "^15.4.1",
+    "mongodb": "^3.1.13"
+  },
+  "description": "Dump records from mongo to elastic",
+  "main": "index.js",
+  "scripts": {
+    "test": "node index.js --m_host mongodb://localhost:27017 --m_db test --m_collection test --e_host localhost:9200 --e_index test --e_type test_map"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sameer17cs/mongo-to-elastic-dump.git"
+  },
+  "keywords": [
+    "mongo",
+    "elastic",
+    "dump",
+    "transform",
+    "fields",
+    "lightweight"
+  ],
+  "author": "sameer17cs",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/sameer17cs/mongo-to-elastic-dump/issues"
+  },
+  "homepage": "https://github.com/sameer17cs/mongo-to-elastic-dump#readme"
+}
