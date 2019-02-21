@@ -1,6 +1,6 @@
 {
   "name": "mongo-to-elastic-dump",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "dependencies": {
     "cli-progress": "^2.1.1",
     "command-line-args": "^5.0.2",
