@@ -41,7 +41,7 @@ function transformDoc(doc) {
 }
 
 class MongoAPI {
-    constructor(db, collection,mongoSkipId) {
+    constructor(db, collection, mongoSkipId) {
         this.db = db;
         this.collection = collection;
         this.mongoSkipId = mongoSkipId;
@@ -49,6 +49,7 @@ class MongoAPI {
 
     get_docs(callback) {
         let query = {};
+        let _this = this;
         if (this.mongoSkipId) {
             query["_id"] = {$gt: ObjectId(this.mongoSkipId)}
         }
@@ -58,11 +59,15 @@ class MongoAPI {
             })
             .catch((err) => {
                 logging('error', err.message);
-                return this.get_docs(callback);
+                setErrTimer();
+                setTimeout(() => {
+                    return _this.get_docs(callback);
+                });
+
             })
     }
 
-     count_docs(callback) {
+    count_docs(callback) {
         let query = {};
         if (this.mongoSkipId) {
             query["_id"] = {$gt: ObjectId(this.mongoSkipId)}
@@ -72,7 +77,7 @@ class MongoAPI {
                 return callback(count);
             })
             .catch((err) => {
-                logging('error',err.message);
+                logging('error', err.message);
                 return this.count_docs(callback);
             })
     }
@@ -99,6 +104,7 @@ class ElasticAPI {
             body: body
         }, function (err, resp) {
             if (err) {
+                setErrTimer();
                 logging('error', err.message);
                 _this.esClient.indices.flush({
                     index: options.e_index
@@ -108,17 +114,15 @@ class ElasticAPI {
                     }
                     return _this.insertDocs(docs, lastDocId);
                 });
-
-
             }
             else if (resp.errors) {
-                logging('error',err.message);
+                logging('error', err.message);
                 return _this.insertDocs(docs, lastDocId);
             }
             else {
                 docsRemaining = docsRemaining - docs.length;
                 logging('debug', 'Elastic inserted docs, took ' + resp.took + ' secs');
-                logging('info', 'Mongo next skip id to run ' + lastDocId.toString() + '\t Completed: ' + (((totalDocs-docsRemaining)/totalDocs).toFixed(2) * 100) + ' %' );
+                logging('info', 'Mongo next skip id to run ' + lastDocId.toString() + '\t Completed: ' + (((totalDocs - docsRemaining) / totalDocs).toFixed(2) * 100) + ' %');
             }
         });
     }
@@ -128,14 +132,18 @@ class ElasticAPI {
 function runner(mongoAPI, elasticAPI) {
     mongoAPI.get_docs((docs) => {
         if (docs.length > 0) {
-            logging('debug','Mongo Batch Fetched');
+            logging('debug', 'Mongo Batch Fetched');
             let lastDocId = docs[docs.length - 1]._id;
             mongoAPI.mongoSkipId = lastDocId;
-            elasticAPI.insertDocs(docs,lastDocId);
-            return runner(mongoAPI, elasticAPI);
+            elasticAPI.insertDocs(docs, lastDocId);
+            setTimeout(() => {
+                return runner(mongoAPI, elasticAPI);
+            }, getErrTimer() * 1000);
+
         }
     });
 }
+
 //start
 if (!options.m_host || !options.m_db || !options.m_collection || !options.e_host || !options.e_index || !options.e_type) {
     logging('error', 'Mandatory options are missing :(');
@@ -145,7 +153,10 @@ if (!options.m_host || !options.m_db || !options.m_collection || !options.e_host
 options.m_limit = options.m_limit ? options.m_limit : 100;
 options.thread = options.thread ? options.thread : require('os').cpus().length;
 options.m_fields = options.m_fields ? options.m_fields.split(',') : null;
-let totalDocs, docsRemaining;
+
+//global variables
+let totalDocs, docsRemaining, errTimer = 0;       //treated as secs;
+
 MongoClient.connect(options.m_host, {useNewUrlParser: true}, function (err, client) {
     logging('info', "Mongo Connected successfully");
 
@@ -165,11 +176,12 @@ MongoClient.connect(options.m_host, {useNewUrlParser: true}, function (err, clie
         totalDocs = count;
         docsRemaining = count;
         runner(mongoAPI, elasticAPI);
+
     });
 });
 
 function logging(level, message) {
-    switch(level) {
+    switch (level) {
         case 'error':
             console.error(`[${new Date().toLocaleTimeString()}] ${message}`);
             break;
@@ -183,5 +195,18 @@ function logging(level, message) {
         // code block
     }
 
+}
+
+//reset at 5 mins
+function getErrTimer() {
+    if (errTimer > 300) {
+        errTimer = 0;
+    }
+    return errTimer;
+}
+
+//increment by 30 sec
+function setErrTimer() {
+    errTimer = errTimer + 30;
 }
 
