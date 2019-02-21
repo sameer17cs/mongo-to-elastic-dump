@@ -83,7 +83,7 @@ class ElasticAPI {
         this.esClient = esClient;
     }
 
-    insertDocs(docs, callback) {
+    insertDocs(docs, lastDocId) {
 
         let body = [];
         docs.forEach((x) => {
@@ -107,16 +107,17 @@ class ElasticAPI {
                         logging('error', err.message);
                     }
                 });
-                return _this.insertDocs(docs, callback);
+                return _this.insertDocs(docs, lastDocId);
 
             }
             else if (resp.errors) {
-                clogging('error',err.message);
-                return _this.insertDocs(docs, callback);
+                logging('error',err.message);
+                return _this.insertDocs(docs, lastDocId);
             }
             else {
-                logging('info', 'Elastic inserted docs, took ' + resp.took + ' secs');
-                return callback();
+                docsRemaining = docsRemaining - docs.length;
+                logging('debug', 'Elastic inserted docs, took ' + resp.took + ' secs');
+                logging('info', 'Mongo next skip id to run ' + lastDocId.toString() + '\t Completed: ' + (((totalDocs-docsRemaining)/totalDocs) * 100) + ' %' );
             }
         });
     }
@@ -128,21 +129,9 @@ function runner(mongoAPI, elasticAPI) {
         if (docs.length > 0) {
             logging('debug','Mongo Batch Fetched');
             let lastDocId = docs[docs.length - 1]._id;
-            elasticAPI.insertDocs(docs, () => {
-                docsRemaining = docsRemaining - docs.length;
-                logging('debug','Elastic Batch indexed');
-
-                mongoAPI.mongoSkipId = lastDocId;
-
-                logging('info', 'Mongo next skip id to run ' + lastDocId.toString() + '\t Completed: ' + (((totalDocs-docsRemaining)/totalDocs) * 100) + ' %' );
-
-                return runner(mongoAPI, elasticAPI);
-
-            })
-        }
-        else {
-            logging('info', 'Sync Complete\n');
-            process.exit(0);
+            mongoAPI.mongoSkipId = lastDocId;
+            elasticAPI.insertDocs(docs,lastDocId);
+            return runner(mongoAPI, elasticAPI);
         }
     });
 }
@@ -171,12 +160,10 @@ MongoClient.connect(options.m_host, {useNewUrlParser: true}, function (err, clie
     let mongoSkipId = options.m_skip_id ? options.m_skip_id : null;
     let mongoAPI = new MongoAPI(db, collection, mongoSkipId);
     let elasticAPI = new ElasticAPI(esClient);
-
-
-    runner(mongoAPI, elasticAPI);
     mongoAPI.count_docs((count) => {
         totalDocs = count;
         docsRemaining = count;
+        runner(mongoAPI, elasticAPI);
     });
 });
 
