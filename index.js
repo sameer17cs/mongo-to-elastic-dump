@@ -177,9 +177,9 @@ MongoClient.connect(options.m_host, {useNewUrlParser: true}, function (err, clie
         docsRemaining = count;
     });
 
-    //print progress
-    setInterval(() => {
-        console.info('Docs Remaining: ' + docsRemaining);
-    }, 30000);
+    // //print progress
+    // setInterval(() => {
+    //     console.info('Docs Remaining: ' + docsRemaining);
+    // }, 30000);
 });
 
