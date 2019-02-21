@@ -106,8 +106,9 @@ class ElasticAPI {
                     if (err) {
                         logging('error', err.message);
                     }
+                    return _this.insertDocs(docs, lastDocId);
                 });
-                return _this.insertDocs(docs, lastDocId);
+
 
             }
             else if (resp.errors) {
