@@ -1,6 +1,6 @@
 {
   "name": "mongo-to-elastic-dump",
-  "version": "1.0.4",
+  "version": "1.0.10",
   "dependencies": {
     "cli-progress": "^2.1.1",
     "command-line-args": "^5.0.2",
@@ -12,8 +12,7 @@
   "scripts": {
     "patch-release": "npm version patch && npm publish && git push --follow-tags",
     "test": "node index.js --m_host mongodb://localhost:27017 --m_db test --m_collection test --e_host localhost:9200 --e_index test --e_type test_map",
-    "postinstall": "sudo npm link",
-    "uninstall": "sudo npm unlink"
+    "postinstall": "sudo npm link"
   },
   "bin": {
     "mongo-to-elastic-dump": "bin/cli.js"
