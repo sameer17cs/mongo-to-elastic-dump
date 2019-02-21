@@ -118,7 +118,7 @@ class ElasticAPI {
             else {
                 docsRemaining = docsRemaining - docs.length;
                 logging('debug', 'Elastic inserted docs, took ' + resp.took + ' secs');
-                logging('info', 'Mongo next skip id to run ' + lastDocId.toString() + '\t Completed: ' + (((totalDocs-docsRemaining)/totalDocs) * 100) + ' %' );
+                logging('info', 'Mongo next skip id to run ' + lastDocId.toString() + '\t Completed: ' + (((totalDocs-docsRemaining)/totalDocs).toFixed(2) * 100) + ' %' );
             }
         });
     }
