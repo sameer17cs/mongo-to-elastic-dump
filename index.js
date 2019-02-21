@@ -17,7 +17,10 @@ const options = commandLineArgs([
     {name: 'm_skip_id', type: String},
     {name: 'e_host', type: String},
     {name: 'e_index', type: String},
-    {name: 'e_type', type: String}
+    {name: 'e_type', type: String},
+    {name: 'update', type: String},
+
+
 
 ]);
 
