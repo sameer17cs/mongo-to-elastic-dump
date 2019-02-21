@@ -15,7 +15,7 @@ You can also:
 
 ### Installation
 
-Dillinger requires [Node.js](https://nodejs.org/) v8+ to run.
+Requires [Node.js](https://nodejs.org/) v8+ to run.
 
 ```sh
 $ npm install mongo-to-elastic-dump

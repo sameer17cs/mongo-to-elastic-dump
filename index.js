@@ -19,9 +19,6 @@ const options = commandLineArgs([
     {name: 'e_index', type: String},
     {name: 'e_type', type: String},
     {name: 'update', type: String},
-
-
-
 ]);
 
 
@@ -60,7 +57,7 @@ class MongoAPI {
                 return callback(docs)
             })
             .catch((err) => {
-                console.error(err);
+                logging('error', err.message);
                 return this.get_docs(callback);
             })
     }
@@ -75,7 +72,7 @@ class MongoAPI {
                 return callback(count);
             })
             .catch((err) => {
-                console.error(err);
+                logging('error',err.message);
                 return this.count_docs(callback);
             })
     }
@@ -102,23 +99,23 @@ class ElasticAPI {
             body: body
         }, function (err, resp) {
             if (err) {
-                console.error(err.message);
+                logging('error', err.message);
                 _this.esClient.indices.flush({
                     index: options.e_index
                 }, function (err, resp) {
                     if (err) {
-                        console.error(err.message);
+                        logging('error', err.message);
                     }
                 });
                 return _this.insertDocs(docs, callback);
 
             }
             else if (resp.errors) {
-                console.error(err);
+                clogging('error',err.message);
                 return _this.insertDocs(docs, callback);
             }
             else {
-                console.info('Elastic inserted docs, took ' + resp.took + ' secs');
+                logging('info', 'Elastic inserted docs, took ' + resp.took + ' secs');
                 return callback();
             }
         });
@@ -129,37 +126,38 @@ class ElasticAPI {
 function runner(mongoAPI, elasticAPI) {
     mongoAPI.get_docs((docs) => {
         if (docs.length > 0) {
-            console.info('Mongo Batch Fetched');
+            logging('debug','Mongo Batch Fetched');
             let lastDocId = docs[docs.length - 1]._id;
             elasticAPI.insertDocs(docs, () => {
                 docsRemaining = docsRemaining - docs.length;
-                console.info('Elastic Batch indexed');
+                logging('debug','Elastic Batch indexed');
 
                 mongoAPI.mongoSkipId = lastDocId;
 
-                console.info('Mongo next skip id to run ' + lastDocId.toString());
+                logging('info', 'Mongo next skip id to run ' + lastDocId.toString() + '\t Completed: ' + (((totalDocs-docsRemaining)/totalDocs) * 100) + ' %' );
 
                 return runner(mongoAPI, elasticAPI);
+
             })
         }
         else {
-            console.info('Sync Complete\n');
+            logging('info', 'Sync Complete\n');
             process.exit(0);
         }
     });
 }
 //start
 if (!options.m_host || !options.m_db || !options.m_collection || !options.e_host || !options.e_index || !options.e_type) {
-    console.error('Mandatory options are missing :(');
+    logging('error', 'Mandatory options are missing :(');
     process.exit(0);
 }
 
 options.m_limit = options.m_limit ? options.m_limit : 100;
 options.thread = options.thread ? options.thread : require('os').cpus().length;
 options.m_fields = options.m_fields ? options.m_fields.split(',') : null;
-let docsRemaining;
+let totalDocs, docsRemaining;
 MongoClient.connect(options.m_host, {useNewUrlParser: true}, function (err, client) {
-    console.log("Mongo Connected successfully");
+    logging('info', "Mongo Connected successfully");
 
     const db = client.db(options.m_db);
     const collection = db.collection(options.m_collection);
@@ -177,12 +175,25 @@ MongoClient.connect(options.m_host, {useNewUrlParser: true}, function (err, clie
 
     runner(mongoAPI, elasticAPI);
     mongoAPI.count_docs((count) => {
+        totalDocs = count;
         docsRemaining = count;
     });
-
-    // //print progress
-    // setInterval(() => {
-    //     console.info('Docs Remaining: ' + docsRemaining);
-    // }, 30000);
 });
+
+function logging(level, message) {
+    switch(level) {
+        case 'error':
+            console.error(`[${new Date().toLocaleTimeString()}] ${message}`);
+            break;
+        case 'info':
+            console.info(`[${new Date().toLocaleTimeString()}] ${message}`);
+            break;
+        case 'debug':
+            console.debug(`[${new Date().toLocaleTimeString()}] ${message}`);
+            break;
+        default:
+        // code block
+    }
+
+}
 
