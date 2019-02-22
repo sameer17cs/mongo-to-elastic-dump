@@ -3,12 +3,12 @@
 [![Build Status](https://travis-ci.org/joemccann/dillinger.svg?branch=master)](https://travis-ci.org/joemccann/dillinger)
 
 mongo-to-elastic-dump is a command line tool for dumping data from mongodb to elasticsearch.
-  - Fully customizable
+  - command line tool for multi-utility
   - Feature to transform data before dumping
   - Both Insert and Update document
 
 # New Features!
-  - Coming Soon
+  - On Suggestions
 
 You can also:
   - Use it as library module
@@ -85,17 +85,18 @@ Options are:
     - mandatory
     - Elastic index type mapping
 
-- e_type ```String```
+- e_doc_id ```String```
     - mandatory
-    - Document field to be used as doc_id in elasticsearch
+    - Document field to be used as document ID in elasticsearch
 
 - e_update ```updatekey```
      - optional
      - If specified, only elastic update operation will be performed.
+     - e_doc_id will be ignored if e_update is provided.
      - It will take provided key as ```updateKey``` and upsert all the fields extracted from mongodb.
      - ```updateKey``` should be present in both elasticsearch (mapping: term)   and mongodb
      - Use --m_fields to restrict fields in document
-     - Update is 'update_by_query', it might be slower
+     - Update is '_update_by_query', it might be slower
 
 
 - m_transform ```filename.js```
