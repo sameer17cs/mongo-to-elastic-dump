@@ -49,7 +49,6 @@ class MongoAPI {
 
     get_docs(callback) {
         let query = {};
-        let _this = this;
         if (this.mongoSkipId) {
             query["_id"] = {$gt: ObjectId(this.mongoSkipId)}
         }
@@ -59,11 +58,7 @@ class MongoAPI {
             })
             .catch((err) => {
                 logging('error', err.message);
-                setErrTimer();
-                setTimeout(() => {
-                    return _this.get_docs(callback);
-                });
-
+                return this.get_docs(callback);
             })
     }
 
@@ -88,7 +83,7 @@ class ElasticAPI {
         this.esClient = esClient;
     }
 
-    insertDocs(docs, lastDocId) {
+    insertDocs(docs, callback) {
 
         let body = [];
         docs.forEach((x) => {
@@ -104,7 +99,6 @@ class ElasticAPI {
             body: body
         }, function (err, resp) {
             if (err) {
-                setErrTimer();
                 logging('error', err.message);
                 _this.esClient.indices.flush({
                     index: options.e_index
@@ -112,17 +106,17 @@ class ElasticAPI {
                     if (err) {
                         logging('error', err.message);
                     }
-                    return _this.insertDocs(docs, lastDocId);
                 });
+                return _this.insertDocs(docs, callback);
+
             }
             else if (resp.errors) {
-                logging('error', err.message);
-                return _this.insertDocs(docs, lastDocId);
+                clogging('error', err.message);
+                return _this.insertDocs(docs, callback);
             }
             else {
-                docsRemaining = docsRemaining - docs.length;
-                logging('debug', 'Elastic inserted docs, took ' + resp.took + ' secs');
-                logging('info', 'Mongo next skip id to run ' + lastDocId.toString() + '\t Completed: ' + (((totalDocs - docsRemaining) / totalDocs).toFixed(2) * 100) + ' %');
+                logging('info', 'Elastic inserted docs, took ' + resp.took + ' secs');
+                return callback();
             }
         });
     }
@@ -134,12 +128,21 @@ function runner(mongoAPI, elasticAPI) {
         if (docs.length > 0) {
             logging('debug', 'Mongo Batch Fetched');
             let lastDocId = docs[docs.length - 1]._id;
-            mongoAPI.mongoSkipId = lastDocId;
-            elasticAPI.insertDocs(docs, lastDocId);
-            setTimeout(() => {
-                return runner(mongoAPI, elasticAPI);
-            }, getErrTimer() * 1000);
+            elasticAPI.insertDocs(docs, () => {
+                docsRemaining = docsRemaining - docs.length;
+                logging('debug', 'Elastic Batch indexed');
 
+                mongoAPI.mongoSkipId = lastDocId;
+
+                logging('info', 'Mongo next skip id to run ' + lastDocId.toString() + '\t Completed: ' + (((totalDocs - docsRemaining) / totalDocs) * 100) + ' %');
+
+                return runner(mongoAPI, elasticAPI);
+
+            })
+        }
+        else {
+            logging('info', 'Sync Complete\n');
+            process.exit(0);
         }
     });
 }
@@ -153,10 +156,7 @@ if (!options.m_host || !options.m_db || !options.m_collection || !options.e_host
 options.m_limit = options.m_limit ? options.m_limit : 100;
 options.thread = options.thread ? options.thread : require('os').cpus().length;
 options.m_fields = options.m_fields ? options.m_fields.split(',') : null;
-
-//global variables
-let totalDocs, docsRemaining, errTimer = 0;       //treated as secs;
-
+let totalDocs, docsRemaining;
 MongoClient.connect(options.m_host, {useNewUrlParser: true}, function (err, client) {
     logging('info', "Mongo Connected successfully");
 
@@ -172,11 +172,12 @@ MongoClient.connect(options.m_host, {useNewUrlParser: true}, function (err, clie
     let mongoSkipId = options.m_skip_id ? options.m_skip_id : null;
     let mongoAPI = new MongoAPI(db, collection, mongoSkipId);
     let elasticAPI = new ElasticAPI(esClient);
+
+
+    runner(mongoAPI, elasticAPI);
     mongoAPI.count_docs((count) => {
         totalDocs = count;
         docsRemaining = count;
-        runner(mongoAPI, elasticAPI);
-
     });
 });
 
@@ -196,17 +197,3 @@ function logging(level, message) {
     }
 
 }
-
-//reset at 5 mins
-function getErrTimer() {
-    if (errTimer > 300) {
-        errTimer = 0;
-    }
-    return errTimer;
-}
-
-//increment by 30 sec
-function setErrTimer() {
-    errTimer = errTimer + 30;
-}
-
