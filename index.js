@@ -1,10 +1,3 @@
-//INSERT
-// node index.js --m_host mongodb://localhost:27017 --m_db profilesraw --m_collection linkedinraw --e_host 192.168.1.101:9200 --e_index test --e_type profile --m_limit 1
-
-//UPDATE
-//node index.js --m_host mongodb://localhost:27017 --m_db profilesraw --m_collection memberid-email --e_host 192.168.1.101:9200 --e_index test --e_type profile --m_limit 1 --e_update linkedin_id
-
-
 'use strict';
 
 const MongoClient = require('mongodb').MongoClient;
@@ -19,28 +12,29 @@ const options = commandLineArgs([
     {name: 'm_fields', type: String},
     {name: 'm_query', type: String},
     {name: 'm_skip_id', type: String},
+    {name: 'm_transform', type: String},
     {name: 'e_host', type: String},
     {name: 'e_index', type: String},
     {name: 'e_type', type: String},
-    {name: 'e_update', type: String},
+    {name: 'e_doc_id', type: String},
+    {name: 'e_update', type: String}
 ]);
 
 
 function transformDoc(doc) {
+    delete doc._id;
+    doc = transformFunction(doc);
+    let returnDoc = {};
+
     if (options.m_fields) {
-        let returnDoc = {};
         options.m_fields.forEach((key) => {
             returnDoc[key] = doc[key];
         });
-        return returnDoc;
-
     }
     else {
-        delete doc.sync;
-        delete doc.processing;
-        delete doc._id;
-        return doc;
+        returnDoc = doc;
     }
+    return returnDoc;
 
 }
 
@@ -100,7 +94,7 @@ class ElasticAPI {
         let body = [];
         docs.forEach((x) => {
             // action description
-            body.push({index: {_index: options.e_index, _type: options.e_type, _id: x._key}});
+            body.push({index: {_index: options.e_index, _type: options.e_type, _id: options.e_doc_id}});
             // the document to index
 
             body.push(transformDoc(x))
@@ -123,7 +117,7 @@ class ElasticAPI {
 
             }
             else if (resp.errors) {
-                logging('error', err.message);
+                logging('error', JSON.stringify(resp));
                 return _this.insertDocs(docs, callback);
             }
             else {
@@ -227,14 +221,24 @@ function runner(mongoAPI, elasticAPI) {
 }
 
 //start
-if (!options.m_host || !options.m_db || !options.m_collection || !options.e_host || !options.e_index || !options.e_type) {
+if (!options.m_host || !options.m_db || !options.m_collection || !options.e_host || !options.e_index || !options.e_type || !(options.e_doc_id || options.e_update)) {
     logging('error', 'Mandatory options are missing :(');
     process.exit(0);
 }
 
+let totalDocs, docsRemaining,transformFunction ;
+
 options.m_limit = options.m_limit ? options.m_limit : 100;
 options.thread = options.thread ? options.thread : require('os').cpus().length;
 options.m_fields = options.m_fields ? options.m_fields.split(',') : null;
+
+options.m_transform = options.m_transform ? options.m_transform : 'transform.js';
+transformFunction = require(`./${options.m_transform}`).transform;
+if (typeof transformFunction !== "function") {
+    logging('error','Error in transform file/function, see Docs. Transform function should return doc');
+    process.exit(0);
+}
+
 try {
     options.m_query = options.m_query ? JSON.parse(options.m_query) : null;
 }
@@ -242,7 +246,8 @@ catch (e) {
     logging('error','Error in mongodb query format, expects JSON');
     process.exit(0);
 }
-let totalDocs, docsRemaining;
+
+
 MongoClient.connect(options.m_host, {useNewUrlParser: true}, function (err, client) {
     logging('info', "Mongo Connected successfully");
 
