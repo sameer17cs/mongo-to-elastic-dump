@@ -17,6 +17,7 @@ const options = commandLineArgs([
     {name: 'm_collection', type: String},
     {name: 'm_limit', type: Number},
     {name: 'm_fields', type: String},
+    {name: 'm_query', type: String},
     {name: 'm_skip_id', type: String},
     {name: 'e_host', type: String},
     {name: 'e_index', type: String},
@@ -52,6 +53,11 @@ class MongoAPI {
 
     get_docs(callback) {
         let query = {};
+
+        if (options.m_query) {
+            query = options.m_query;
+        }
+
         if (this.mongoSkipId) {
             query["_id"] = {$gt: ObjectId(this.mongoSkipId)}
         }
@@ -67,10 +73,13 @@ class MongoAPI {
 
     count_docs(callback) {
         let query = {};
+        if (options.m_query) {
+            query = options.m_query;
+        }
         if (this.mongoSkipId) {
             query["_id"] = {$gt: ObjectId(this.mongoSkipId)}
         }
-        this.collection.estimatedDocumentCount(query)
+        this.collection.find(query).count()
             .then((count) => {
                 return callback(count);
             })
@@ -226,6 +235,13 @@ if (!options.m_host || !options.m_db || !options.m_collection || !options.e_host
 options.m_limit = options.m_limit ? options.m_limit : 100;
 options.thread = options.thread ? options.thread : require('os').cpus().length;
 options.m_fields = options.m_fields ? options.m_fields.split(',') : null;
+try {
+    options.m_query = options.m_query ? JSON.parse(options.m_query) : null;
+}
+catch (e) {
+    logging('error','Error in mongodb query format, expects JSON');
+    process.exit(0);
+}
 let totalDocs, docsRemaining;
 MongoClient.connect(options.m_host, {useNewUrlParser: true}, function (err, client) {
     logging('info', "Mongo Connected successfully");
