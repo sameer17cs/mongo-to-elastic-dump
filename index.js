@@ -1,6 +1,9 @@
-// node index.js --m_host mongodb://localhost:27017 --m_db profilesraw --m_collection linkedinraw --e_host 35.202.115.2:9200 --e_index test --e_type profile
+//INSERT
+// node index.js --m_host mongodb://localhost:27017 --m_db profilesraw --m_collection linkedinraw --e_host 192.168.1.101:9200 --e_index test --e_type profile --m_limit 1
 
-//node index.js --m_host mongodb://localhost:27017 --m_db profilesraw --m_collection linkedinraw --e_host 35.202.115.2:9200 --e_index test --e_type profile --m_limit 1
+//UPDATE
+//node index.js --m_host mongodb://localhost:27017 --m_db profilesraw --m_collection memberid-email --e_host 192.168.1.101:9200 --e_index test --e_type profile --m_limit 1 --e_update linkedin_id
+
 
 'use strict';
 
@@ -18,7 +21,7 @@ const options = commandLineArgs([
     {name: 'e_host', type: String},
     {name: 'e_index', type: String},
     {name: 'e_type', type: String},
-    {name: 'update', type: String},
+    {name: 'e_update', type: String},
 ]);
 
 
@@ -111,7 +114,7 @@ class ElasticAPI {
 
             }
             else if (resp.errors) {
-                clogging('error', err.message);
+                logging('error', err.message);
                 return _this.insertDocs(docs, callback);
             }
             else {
@@ -119,6 +122,63 @@ class ElasticAPI {
                 return callback();
             }
         });
+    }
+
+    updateDocs(docs, callback) {
+        let _this = this;
+
+        let allPromises = docs.map((x) => {
+            return new Promise((resolve, reject) => {
+                let scriptArray = [];
+                for (let key in x) {
+                    if (key !== '_id' && key !== options.e_update)
+                        scriptArray.push(`ctx._source.${key} = '${x[key]}'`);
+                }
+
+                let query = {term: {}};
+                query['term'][options.e_update] = x[options.e_update];
+                this.esClient.updateByQuery({
+                        index: options.e_index,
+                        type: options.e_type,
+                        body: {
+                            "query":query,
+                            "script": {"source": scriptArray.join(';')}
+                        }
+                    }, function (err, resp) {
+                        if (err) {
+                            console.error(err);
+                            return reject(err);
+                        }
+                        else if (resp.errors) {
+                            console.error(resp.errors);
+                            return reject(resp.errors);
+                        }
+                        else {
+                            return resolve()
+                        }
+
+                    }
+                )
+            })
+        });
+
+        Promise.all(allPromises)
+            .then(() => {
+                logging('info', 'Elastic updated docs batch');
+                return callback();
+
+            })
+            .catch((err) => {
+                logging('error', err.message);
+                _this.esClient.indices.flush({
+                    index: options.e_index
+                }, function (err, resp) {
+                    if (err) {
+                        logging('error', err.message);
+                    }
+                });
+                return _this.updateDocs(docs, callback);
+            })
     }
 }
 
@@ -128,17 +188,27 @@ function runner(mongoAPI, elasticAPI) {
         if (docs.length > 0) {
             logging('debug', 'Mongo Batch Fetched');
             let lastDocId = docs[docs.length - 1]._id;
-            elasticAPI.insertDocs(docs, () => {
-                docsRemaining = docsRemaining - docs.length;
-                logging('debug', 'Elastic Batch indexed');
 
-                mongoAPI.mongoSkipId = lastDocId;
+            if (options.e_update) {
+                elasticAPI.updateDocs(docs, () => {
+                    docsRemaining = docsRemaining - docs.length;
+                    mongoAPI.mongoSkipId = lastDocId;
+                    logging('info', 'Mongo next skip id to run ' + lastDocId.toString() + '\t Completed: ' + (((totalDocs - docsRemaining) / totalDocs).toFixed(2) * 100) + ' %');
+                    return runner(mongoAPI, elasticAPI);
+                })
+            }
 
-                logging('info', 'Mongo next skip id to run ' + lastDocId.toString() + '\t Completed: ' + (((totalDocs - docsRemaining) / totalDocs).toFixed(2) * 100) + ' %');
+            else {
+                elasticAPI.insertDocs(docs, () => {
+                    docsRemaining = docsRemaining - docs.length;
+                    mongoAPI.mongoSkipId = lastDocId;
+                    logging('info', 'Mongo next skip id to run ' + lastDocId.toString() + '\t Completed: ' + (((totalDocs - docsRemaining) / totalDocs).toFixed(2) * 100) + ' %');
+                    return runner(mongoAPI, elasticAPI);
 
-                return runner(mongoAPI, elasticAPI);
+                })
+            }
 
-            })
+
         }
         else {
             logging('info', 'Sync Complete\n');

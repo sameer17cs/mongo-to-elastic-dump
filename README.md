@@ -65,17 +65,25 @@ Options are:
 - e_type <String>
     - Elastic index type mapping
 
- - update <update_key>
+ - e_update <update_key>
      - If specified, only elastic update operation will be performed.
      - It will take provided key as update_key and upsert all the fields extracted from mongo.
      - update_key should be present in both elastic and mongodb
      - Use --m_fields to restirct fields in document
+     - Update is 'update_by_query', it might be slower
 
 ##### Example
 
+INSERT DOCS
 ```sh
 $ mongo-to-elastic-dump --m_host mongodb://localhost:27017 --m_db test_db --m_collection test_coll --e_host localhost:9200 --e_index test_index --e_type test_type
 ```
+
+UPDATE DOCS
+```sh
+$ mongo-to-elastic-dump --m_host mongodb://localhost:27017 --m_db test_db --m_collection test_coll --e_host localhost:9200 --e_index test_index --e_type test_type --e_update updatekey
+```
+
 
 ### Todos
 
