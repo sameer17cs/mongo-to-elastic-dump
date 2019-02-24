@@ -14,6 +14,7 @@ You can also:
 ### Installation
 
 Requires [Node.js](https://nodejs.org/) v8+ to run.
+Works best with mongodb v4.x and elasticsearch v6.x
 
 ```sh
 $ npm install mongo-to-elastic-dump
@@ -94,6 +95,8 @@ Options are:
      - ```updateKey``` should be present in both elasticsearch (mapping: term)   and mongodb
      - Use --m_fields to restrict fields in document
      - It searches document by query having ```updatekey```, then updates the batch in bulk
+     - If elasticsearch throws error, try setting lower value for ```m_limit```
+     - Might be significant slower than indexing
 
 
 - m_transform ```filename.js```
