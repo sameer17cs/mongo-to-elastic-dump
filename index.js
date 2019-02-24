@@ -24,17 +24,7 @@ const options = commandLineArgs([
 function transformDoc(doc) {
     delete doc._id;
     doc = transformFunction(doc);
-    let returnDoc = {};
-
-    if (options.m_fields) {
-        options.m_fields.forEach((key) => {
-            returnDoc[key] = doc[key];
-        });
-    }
-    else {
-        returnDoc = doc;
-    }
-    return returnDoc;
+    return doc;
 
 }
 
@@ -46,16 +36,21 @@ class MongoAPI {
     }
 
     get_docs(callback) {
-        let query = {};
+        let query = {}, projection = {};
 
         if (options.m_query) {
             query = options.m_query;
         }
-
         if (this.mongoSkipId) {
             query["_id"] = {$gt: ObjectId(this.mongoSkipId)}
         }
-        this.collection.find(query).limit(options.m_limit).toArray()
+
+        if (options.m_fields) {
+            options.m_fields.forEach((key) => {
+                projection[key] = 1;
+            });
+        }
+        this.collection.find(query).project(projection).limit(options.m_limit).toArray()
             .then((docs) => {
                 return callback(docs)
             })
@@ -94,7 +89,7 @@ class ElasticAPI {
         let body = [];
         docs.forEach((x) => {
             // action description
-            body.push({index: {_index: options.e_index, _type: options.e_type, _id: options.e_doc_id}});
+            body.push({index: {_index: options.e_index, _type: options.e_type, _id: x[options.e_doc_id]}});
             // the document to index
 
             body.push(transformDoc(x))
