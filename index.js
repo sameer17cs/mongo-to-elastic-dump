@@ -17,7 +17,7 @@ const options = commandLineArgs([
     {name: 'e_index', type: String},
     {name: 'e_type', type: String},
     {name: 'e_doc_id', type: String},
-    {name: 'e_update', type: String}
+    {name: 'e_update_key', type: String}
 ]);
 
 
@@ -129,9 +129,8 @@ class ElasticAPI {
             return new Promise((resolve, reject) => {
 
                 let searchBody = {_source: false, query: {term: {}}};
-                searchBody['query']['term'][options.e_update] = {};
-                searchBody['query']['term'][options.e_update]['value'] = x[options.e_update];
-
+                searchBody['query']['term'][options.e_update_key] = {};
+                searchBody['query']['term'][options.e_update_key]['value'] = x[options.e_update_key];
                 _this.esClient.search({
                         index: options.e_index,
                         type: options.e_type,
@@ -159,7 +158,7 @@ class ElasticAPI {
                             }
                             //if no doc found, just resolve it
                             else {
-                                logging('debug', `Elastic No Document found for ${options.e_update} ${x[options.e_update]}`);
+                                logging('debug', `Elastic No Document found for ${options.e_update_key} ${x[options.e_update_key]}`);
                                 return resolve();
                             }
 
@@ -170,30 +169,37 @@ class ElasticAPI {
 
         Promise.all(searchPromises)
             .then(() => {
-                this.esClient.bulk({
-                    body: updateBody
-                }, function (err, resp) {
-                    if (err) {
-                        logging('error', err.message);
-                        _this.esClient.indices.flush({
-                            index: options.e_index
-                        }, function (err, resp) {
-                            if (err) {
-                                logging('error', err.message);
-                            }
-                        });
-                        return _this.updateDocs(docs, callback);
+                if (updateBody.length > 0)
+                {
+                    this.esClient.bulk({
+                        body: updateBody
+                    }, function (err, resp) {
+                        if (err) {
+                            logging('error', err.message);
+                            _this.esClient.indices.flush({
+                                index: options.e_index
+                            }, function (err, resp) {
+                                if (err) {
+                                    logging('error', err.message);
+                                }
+                            });
+                            return _this.updateDocs(docs, callback);
 
-                    }
-                    else if (resp.errors) {
-                        logging('error', JSON.stringify(resp));
-                        return _this.updateDocs(docs, callback);
-                    }
-                    else {
-                        logging('info', 'Elastic updated batch, took ' + resp.took + ' secs');
-                        return callback();
-                    }
-                });
+                        }
+                        else if (resp.errors) {
+                            logging('error', JSON.stringify(resp));
+                            return _this.updateDocs(docs, callback);
+                        }
+                        else {
+                            logging('info', 'Elastic updated batch, took ' + resp.took + ' secs');
+                            return callback();
+                        }
+                    });
+                }
+                else {
+                    logging('info', 'Elastic no docs to update in this batch ..');
+                    return callback();
+                }
             })
             .catch((err) => {
                 logging('error', err.message);
@@ -216,7 +222,7 @@ function runner(mongoAPI, elasticAPI) {
             logging('debug', 'Mongo Batch Fetched');
             let lastDocId = docs[docs.length - 1]._id;
 
-            if (options.e_update) {
+            if (options.e_update_key) {
                 elasticAPI.updateDocs(docs, () => {
                     docsRemaining = docsRemaining - docs.length;
                     mongoAPI.mongoSkipId = lastDocId;
@@ -245,7 +251,7 @@ function runner(mongoAPI, elasticAPI) {
 }
 
 //start
-if (!options.m_host || !options.m_db || !options.m_collection || !options.e_host || !options.e_index || !options.e_type || !(options.e_doc_id || options.e_update)) {
+if (!options.m_host || !options.m_db || !options.m_collection || !options.e_host || !options.e_index || !options.e_type || !(options.e_doc_id || options.e_update_key)) {
     logging('error', 'Mandatory options are missing :(');
     process.exit(0);
 }

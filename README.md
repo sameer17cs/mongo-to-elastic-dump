@@ -1,7 +1,5 @@
 # Mongo To Elastic Dump
 
-[![Build Status](https://travis-ci.org/joemccann/dillinger.svg?branch=master)](https://travis-ci.org/joemccann/dillinger)
-
 mongo-to-elastic-dump is a command line tool for dumping data from mongodb to elasticsearch.
   - command line tool for multi-utility
   - Feature to transform data before dumping
@@ -89,14 +87,13 @@ Options are:
     - mandatory
     - Document field to be used as document ID in elasticsearch
 
-- e_update ```updatekey```
-     - optional
-     - If specified, only elastic update operation will be performed.
-     - e_doc_id will be ignored if e_update is provided.
-     - It will take provided key as ```updateKey``` and upsert all the fields extracted from mongodb.
+- e_update_key ```updatekey```
+     - Use when you want to update docs
+     - When specified, only elastic update operation will be performed.
+     - e_doc_id will be ignored if e_update_key is provided.
      - ```updateKey``` should be present in both elasticsearch (mapping: term)   and mongodb
      - Use --m_fields to restrict fields in document
-     - Update is '_update_by_query', it might be slower
+     - It searches document by query having ```updatekey```, then updates the batch in bulk
 
 
 - m_transform ```filename.js```
@@ -124,15 +121,27 @@ INSERT SELECT DOCS BY MONGODB QUERY
 mongo-to-elastic-dump --m_host mongodb://localhost:27017 --m_db test_db --m_collection test_coll --e_host localhost:9200 --e_index test_index --e_type test_type  --e_doc_id doc_key  --m_query '{}'
 ```
 
-UPDATE DOCS IN ELASTIC BY UPDATEFIELD
+INSERT SELECT FIELDS
 ```sh
-mongo-to-elastic-dump --m_host mongodb://localhost:27017 --m_db test_db --m_collection test_coll --e_host localhost:9200 --e_index test_index --e_update updatekey
+mongo-to-elastic-dump --m_host mongodb://localhost:27017 --m_db test_db --m_collection test_coll --e_host localhost:9200 --e_index test_index --e_type test_type  --e_doc_id doc_key  --m_fields field1,field2,field3
 ```
 
-TRANSFORM DOCS
+INSERT TRANSFORMED DOCS
 ```sh
 mongo-to-elastic-dump --m_host mongodb://localhost:27017 --m_db test_db --m_collection test_coll --e_host localhost:9200 --e_index test_index --e_type test_type --e_doc_id doc_key --m_transform transform.js
 ```
+
+UPDATE DOCS IN ELASTIC BY GIVEN ```updatekey```
+```sh
+mongo-to-elastic-dump --m_host mongodb://localhost:27017 --m_db test_db --m_collection test_coll --e_host localhost:9200 --e_index test_index --e_update_key updatekey
+```
+
+UPDATE DOCS IN ELASTIC BY TRANSFORM
+```sh
+mongo-to-elastic-dump --m_host mongodb://localhost:27017 --m_db test_db --m_collection test_coll --e_host localhost:9200 --e_index test_index --e_type test_type --e_update_key updatekey --m_transform transform.js
+```
+
+
 
 ### Todos
 
