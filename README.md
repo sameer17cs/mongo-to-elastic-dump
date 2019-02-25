@@ -88,20 +88,17 @@ Options are:
     - mandatory
     - Document field to be used as document ID in elasticsearch
 
-- e_update_key ```updatekey``` [ , ```isPrimary```` ]
+- e_update_key ```updatekey```  [, ```isPrimary``` ]
      - Use when you want to update docs by elastic primary doc_id or non-primary key
      - When specified, only elastic update operation will be performed.
      - ```updateKey``` should be present in both elasticsearch (mapping: term)   and mongodb
      - ```isPrimary```
                 - optional
                 - default: false
-                - 'false':
-                        - When your e_update_key is **NOT** elasticsearch primary id (e_doc_id)
-                        - It searches document by query having ```updatekey```, then updates the batch in bulk
 
-                - 'true' :
-                        - When your e_update_key is **THE** elasticsearch primary id (e_doc_id)
-                        - It runs bulk update query, it is **faster**.
+                - 'false':  When your e_update_key is **NOT** elasticsearch primary id (e_doc_id). It searches document by query having ```updatekey```, then updates the batch in bulk
+
+                - 'true' : When your e_update_key is **THE** elasticsearch primary id (e_doc_id). It runs bulk update query, it is **faster**.
 
      - Use --m_fields to restrict fields in document
      - Use --m_transform to transform fields in document
