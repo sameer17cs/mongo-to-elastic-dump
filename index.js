@@ -125,94 +125,139 @@ class ElasticAPI {
     updateDocs(docs, callback) {
         let _this = this;
         let updateBody = [];
-        let searchPromises = docs.map((x) => {
-            return new Promise((resolve, reject) => {
 
-                let searchBody = {_source: false, query: {term: {}}};
-                searchBody['query']['term'][options.e_update_key] = {};
-                searchBody['query']['term'][options.e_update_key]['value'] = x[options.e_update_key];
-                _this.esClient.search({
-                        index: options.e_index,
-                        type: options.e_type,
-                        body: searchBody
-                    },
-                    function (err, resp) {
-                        if (err) {
-                            return reject(err);
-                        }
-                        else {
-                            let searchedDocId = resp.hits.hits[0] ? resp.hits.hits[0]._id : null;
-                            if (searchedDocId) {
+        //when e_update_key[0] is also the field with value of elastic doc id.
+        if (options.e_update_key[1]) {
+            let updateBody = [];
+            docs.forEach((x) => {
+                // action description
+                updateBody.push({
+                    update: {
+                        _index: options.e_index,
+                        _type: options.e_type,
+                        _id: x[options.e_update_key[0]]
+                    }
+                });
+                // the document to update
+                updateBody.push({doc: transformDoc(x)});
+            });
 
-                                // action description
-                                updateBody.push({
-                                    update: {
-                                        _index: options.e_index,
-                                        _type: options.e_type,
-                                        _id: searchedDocId
-                                    }
-                                });
-                                // the document to update
-                                updateBody.push({doc: transformDoc(x)});
-                                return resolve();
-                            }
-                            //if no doc found, just resolve it
-                            else {
-                                logging('debug', `Elastic No Document found for ${options.e_update_key} ${x[options.e_update_key]}`);
-                                return resolve();
-                            }
-
-                        }
-                    })
-            })
-        });
-
-        Promise.all(searchPromises)
-            .then(() => {
-                if (updateBody.length > 0)
-                {
-                    this.esClient.bulk({
-                        body: updateBody
+            let _this = this;
+            this.esClient.bulk({
+                body: updateBody
+            }, function (err, resp) {
+                if (err) {
+                    logging('error', err.message);
+                    _this.esClient.indices.flush({
+                        index: options.e_index
                     }, function (err, resp) {
                         if (err) {
                             logging('error', err.message);
-                            _this.esClient.indices.flush({
-                                index: options.e_index
-                            }, function (err, resp) {
-                                if (err) {
-                                    logging('error', err.message);
-                                }
-                            });
-                            return _this.updateDocs(docs, callback);
-
-                        }
-                        else if (resp.errors) {
-                            logging('error', JSON.stringify(resp));
-                            return _this.updateDocs(docs, callback);
-                        }
-                        else {
-                            logging('info', 'Elastic updated batch, took ' + resp.took + ' secs');
-                            return callback();
                         }
                     });
+                    return _this.updateDocs(docs, callback);
+
+                }
+                else if (resp.errors) {
+                    logging('error', JSON.stringify(resp));
+                    return _this.updateDocs(docs, callback);
                 }
                 else {
-                    logging('info', 'Elastic no docs to update in this batch ..');
+                    logging('info', 'Elastic updated docs, took ' + resp.took + ' secs');
                     return callback();
                 }
-            })
-            .catch((err) => {
-                logging('error', err.message);
-                _this.esClient.indices.flush({
-                    index: options.e_index
-                }, function (err, resp) {
-                    if (err) {
-                        logging('error', err.message);
-                    }
-                });
-                return _this.updateDocs(docs, callback);
-            })
+            });
+        }
 
+        //when e_update_key[0] value is different from elastic doc id.
+        else {
+            let searchPromises = docs.map((x) => {
+                return new Promise((resolve, reject) => {
+
+                    let searchBody = {_source: false, query: {term: {}}};
+                    searchBody['query']['term'][options.e_update_key[0]] = {};
+                    searchBody['query']['term'][options.e_update_key[0]]['value'] = x[options.e_update_key[0]];
+                    _this.esClient.search({
+                            index: options.e_index,
+                            type: options.e_type,
+                            body: searchBody
+                        },
+                        function (err, resp) {
+                            if (err) {
+                                return reject(err);
+                            }
+                            else {
+                                let searchedDocId = resp.hits.hits[0] ? resp.hits.hits[0]._id : null;
+                                if (searchedDocId) {
+
+                                    // action description
+                                    updateBody.push({
+                                        update: {
+                                            _index: options.e_index,
+                                            _type: options.e_type,
+                                            _id: searchedDocId
+                                        }
+                                    });
+                                    // the document to update
+                                    updateBody.push({doc: transformDoc(x)});
+                                    return resolve();
+                                }
+                                //if no doc found, just resolve it
+                                else {
+                                    logging('debug', `Elastic No Document found for ${options.e_update_key[0]} ${x[options.e_update_key[0]]}`);
+                                    return resolve();
+                                }
+
+                            }
+                        })
+                })
+            });
+
+            Promise.all(searchPromises)
+                .then(() => {
+                    if (updateBody.length > 0) {
+                        this.esClient.bulk({
+                            body: updateBody
+                        }, function (err, resp) {
+                            if (err) {
+                                logging('error', err.message);
+                                _this.esClient.indices.flush({
+                                    index: options.e_index
+                                }, function (err, resp) {
+                                    if (err) {
+                                        logging('error', err.message);
+                                    }
+                                });
+                                return _this.updateDocs(docs, callback);
+
+                            }
+                            else if (resp.errors) {
+                                logging('error', JSON.stringify(resp));
+                                return _this.updateDocs(docs, callback);
+                            }
+                            else {
+                                logging('info', 'Elastic updated batch, took ' + resp.took + ' secs');
+                                return callback();
+                            }
+                        });
+                    }
+                    else {
+                        logging('info', 'Elastic no docs to update in this batch ..');
+                        return callback();
+                    }
+                })
+                .catch((err) => {
+                    logging('error', err.message);
+                    _this.esClient.indices.flush({
+                        index: options.e_index
+                    }, function (err, resp) {
+                        if (err) {
+                            logging('error', err.message);
+                        }
+                    });
+                    return _this.updateDocs(docs, callback);
+                })
+        }
     }
 }
 
@@ -250,34 +295,22 @@ function runner(mongoAPI, elasticAPI) {
     });
 }
 
-//start
+//Beginning of script
+
+// validations
 if (!options.m_host || !options.m_db || !options.m_collection || !options.e_host || !options.e_index || !options.e_type || !(options.e_doc_id || options.e_update_key)) {
     logging('error', 'Mandatory options are missing :(');
     process.exit(0);
 }
-
+// global
 let totalDocs, docsRemaining, transformFunction;
 
-options.m_limit = options.m_limit ? options.m_limit : 100;
-options.thread = options.thread ? options.thread : require('os').cpus().length;
-options.m_fields = options.m_fields ? options.m_fields.split(',') : null;
-
-options.m_transform = options.m_transform ? options.m_transform : 'transform.js';
-transformFunction = require(`./${options.m_transform}`).transform;
-if (typeof transformFunction !== "function") {
-    logging('error', 'Error in transform file/function, see Docs. Transform function should return doc');
-    process.exit(0);
-}
-
-try {
-    options.m_query = options.m_query ? JSON.parse(options.m_query) : null;
-}
-catch (e) {
-    logging('error', 'Error in mongodb query format, expects JSON');
-    process.exit(0);
-}
+// parse options and transform
+parse_options();
 
 
+
+// execution start
 MongoClient.connect(options.m_host, {useNewUrlParser: true}, function (err, client) {
     logging('info', "Mongo Connected successfully");
 
@@ -301,6 +334,11 @@ MongoClient.connect(options.m_host, {useNewUrlParser: true}, function (err, clie
     });
 });
 
+
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Helper Functions
+// ---------------------------------------------------------------------------------------------------------------------
 function logging(level, message) {
     switch (level) {
         case 'error':
@@ -316,4 +354,31 @@ function logging(level, message) {
         // code block
     }
 
+}
+
+function parse_options() {
+    options.m_limit = options.m_limit ? options.m_limit : 100;
+    options.thread = options.thread ? options.thread : require('os').cpus().length;
+    options.m_fields = options.m_fields ? options.m_fields.split(',') : null;
+
+    if (options.e_update_key) {
+        options.e_update_key = options.e_update_key.split(',');
+        options.e_update_key[1] && options.e_update_key[1] === 'true' ? options.e_update_key[1] = true : options.e_update_key[1] = false;
+
+    }
+
+    options.m_transform = options.m_transform ? options.m_transform : 'transform.js';
+    transformFunction = require(`./${options.m_transform}`).transform;
+    if (typeof transformFunction !== "function") {
+        logging('error', 'Error in transform file/function, see Docs. Transform function should return doc');
+        process.exit(0);
+    }
+
+    try {
+        options.m_query = options.m_query ? JSON.parse(options.m_query) : null;
+    }
+    catch (e) {
+        logging('error', 'Error in mongodb query format, expects JSON');
+        process.exit(0);
+    }
 }
