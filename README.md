@@ -86,12 +86,12 @@ Options are:
 
 - e_doc_id ```String```
     - mandatory
-    - JSON Document key name (field name) to be used as document id (_id) in elasticsearch
+    - JSON Document key name (field name), whose value will be used as document id (_id) in elasticsearch
 
 - e_update_key ```updatekey```  [, ```isPrimary``` ]
      - optional
      - Use if you want to update docs by elastic primary doc_id or non-primary key. When specified, only elastic update operation will be performed.
-     - JSON Document key name (field name) to be used for update
+     - JSON Document key name (field name), whose value will be used to match document for update.
      - ```updateKey``` key field should be present in both elasticsearch (mapping: term)   and mongodb
      - ```isPrimary```
                 - optional
