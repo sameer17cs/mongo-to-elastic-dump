@@ -4,6 +4,7 @@ mongo-to-elastic-dump is a command line tool for dumping data from mongodb to el
   - command line tool for multi-utility
   - Feature to transform data before dumping
   - Both Insert and Update document
+  - https://www.npmjs.com/package/mongo-to-elastic-dump
 
 # New Features!
   - On Suggestions
