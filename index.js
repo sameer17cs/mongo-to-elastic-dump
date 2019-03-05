@@ -368,7 +368,7 @@ function parse_options() {
     }
 
     options.m_transform = options.m_transform ? options.m_transform : 'transform.js';
-    transformFunction = require(`./${options.m_transform}`).transform;
+    transformFunction = require(`${options.m_transform}`).transform;
     if (typeof transformFunction !== "function") {
         logging('error', 'Error in transform file/function, see Docs. Transform function should return doc');
         process.exit(0);

@@ -20,7 +20,12 @@ Works best with mongodb v4.x and elasticsearch v6.x
 ```sh
 $ npm install mongo-to-elastic-dump
 $ npm install mongo-to-elastic-dump -g
-$ npm link              //run it as command line tool
+```
+
+### Use it as command line
+```sh
+$ cd /path/to/library
+$ npm link
 ```
 
 #### Building for source
@@ -105,14 +110,13 @@ Options are:
 
      - Use --m_fields to restrict fields in document
      - Use --m_transform to transform fields in document
-     -
      - If elasticsearch throws error, try setting lower value for ```m_limit```
      - Might be significant slower than indexing
      - e_doc_id will be ignored if e_update_key is provided.
      - example: ```updateKey``` | ```updateKey```,```true```
 
 
-- m_transform ```filename.js```
+- m_transform ```/absolute/path/filename.js```
      - optional
      - filename.js should export a function named 'transform'
      - This function should transform and return the doc
