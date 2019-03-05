@@ -19,6 +19,7 @@ Works best with mongodb v4.x and elasticsearch v6.x
 ```sh
 $ npm install mongo-to-elastic-dump
 $ npm install mongo-to-elastic-dump -g
+$ npm link              //run it as command line tool
 ```
 
 #### Building for source

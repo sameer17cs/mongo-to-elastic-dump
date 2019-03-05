@@ -10,8 +10,7 @@
   "main": "index.js",
   "scripts": {
     "patch-release": "npm version patch && npm publish && git push --follow-tags",
-    "test": "./test/sanity.sh",
-    "postinstall": "sudo npm link"
+    "test": "./test/sanity.sh"
   },
   "bin": {
     "mongo-to-elastic-dump": "bin/command.js"
