@@ -103,16 +103,15 @@ Options are:
     - Use when you want to update elasticsearch docs by primary key or non-primary key.
     - It is JSON Document field name, whose value will be used to match document for update.
     - ```updateKey``` key field should be present in both elasticsearch (with some mapping like term) and mongodb
-    - Options like ---m_query, -m_fields, --m_transform are valid
-    - If elasticsearch throws error, try setting lower value for ```m_limit```
-    - ```isPrimary```
-            - optional
-            - default: false
-            - **false**: When ```updatekey``` is **NOT** elasticsearch primary key. It is **slow**.
-            - **true** : When ```updatekey``` is **THE** elasticsearch primary key. It is **faster**.
+     - ```isPrimary```
+                - optional
+                - default: false
+                - Set ```false``` when ```updatekey``` is **NOT** elasticsearch primary key. It is slow.
+                - Set ```true``` when ```updatekey``` is **THE** elasticsearch primary key. It is **faster**.
 
-
-    - Example ```--e_update_key updateKey``` | ```--e_update_key updateKey,true```
+     - Options like ---m_query, -m_fields, --m_transform are valid
+     - If elasticsearch throws error, try setting lower value for ```m_limit```
+     - Example ```--e_update_key updateKey``` | ```--e_update_key updateKey,true```
 
 
 - m_transform ```/absolute/path/filename.js```
