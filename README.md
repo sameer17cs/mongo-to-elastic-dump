@@ -36,12 +36,14 @@ $ cd mongo-to-elastic-dump
 $ npm install
 ```
 
-#### How To Run
+#### Use as tool
 Once installed, you can use it as command line tool
 ```sh
 $ mongo-to-elastic-dump [--options]
 ```
+
 Options are:
+
 - m_host ```String```
      - mandatory
      - mongodb host uri (mongodb://uri:port)
@@ -63,14 +65,14 @@ Options are:
      - optional
      - Mongodb query to extract dump
      - Default: {}
-     - {"dump": true}
+     - Example: {"dump": true}
 
 - m_fields  ```String```
      - optional
      - Mongodb Document Fields to dump
      - Default: null (i.e. all fields)
      - comma separated string
-     - field1, field2, field3
+     - Example: field1, field2, field3
 
 - m_skip_id ```BSON String```
     - optional
@@ -85,7 +87,7 @@ Options are:
 
 - e_index ```String```
     - mandatory
-    - Elastic index to insert/update data
+    - Elastic index to insert/update documents
 
 - e_type ```String```
     - mandatory
@@ -93,27 +95,23 @@ Options are:
 
 - e_doc_id ```String```
     - mandatory
+    - Document Primary key
     - JSON Document key name (field name), whose value will be used as document id (_id) in elasticsearch
 
 - e_update_key ```updatekey```  [, ```isPrimary``` ]
      - optional
-     - Use if you want to update docs by elastic primary doc_id or non-primary key. When specified, only elastic update operation will be performed.
-     - JSON Document key name (field name), whose value will be used to match document for update.
-     - ```updateKey``` key field should be present in both elasticsearch (mapping: term)   and mongodb
+     - Use when you want to update elasticsearch docs by primary key or non-primary key.
+     - It is JSON Document field name, whose value will be used to match document for update.
+     - ```updateKey``` key field should be present in both elasticsearch (with some mapping like term) and mongodb
      - ```isPrimary```
                 - optional
                 - default: false
+                - ```false```: When ```updatekey``` is **NOT** elasticsearch primary key. It is slow.
+                - ```true``` : When ```updatekey``` is **THE** elasticsearch primary key. It is **faster**.
 
-                - 'false':  When your e_update_key is **NOT** elasticsearch primary id (e_doc_id). It searches document by query having ```updatekey```, then updates the batch in bulk
-
-                - 'true' : When your e_update_key is **THE** elasticsearch primary id (e_doc_id). It runs bulk update query, it is **faster**.
-
-     - Use --m_fields to restrict fields in document
-     - Use --m_transform to transform fields in document
+     - Options like ---m_query, -m_fields, --m_transform are valid
      - If elasticsearch throws error, try setting lower value for ```m_limit```
-     - Might be significant slower than indexing
-     - e_doc_id will be ignored if e_update_key is provided.
-     - example: ```updateKey``` | ```updateKey```,```true```
+     - Example ```--e_update_key updateKey``` | ```--e_update_key updateKey,true```
 
 
 - m_transform ```/absolute/path/filename.js```
@@ -151,7 +149,12 @@ INSERT TRANSFORMED DOCS
 mongo-to-elastic-dump --m_host mongodb://localhost:27017 --m_db test_db --m_collection test_coll --e_host localhost:9200 --e_index test_index --e_type test_type --e_doc_id doc_key --m_transform transform.js
 ```
 
-UPDATE DOCS IN ELASTIC BY GIVEN ```updatekey```
+UPDATE DOCS IN ELASTIC BY GIVEN PRIMARY ```updatekey```
+```sh
+mongo-to-elastic-dump --m_host mongodb://localhost:27017 --m_db test_db --m_collection test_coll --e_host localhost:9200 --e_index test_index --e_update_key updatekey,true
+```
+
+UPDATE DOCS IN ELASTIC BY GIVEN NON-PRIMARY ```updatekey``` (should be mapped in elasticsearch)
 ```sh
 mongo-to-elastic-dump --m_host mongodb://localhost:27017 --m_db test_db --m_collection test_coll --e_host localhost:9200 --e_index test_index --e_update_key updatekey
 ```
@@ -171,5 +174,3 @@ License
 ----
 
 MIT
-
-**Free Software, Hell Yeah!**
