@@ -3,6 +3,7 @@
 const MongoClient = require('mongodb').MongoClient;
 const elasticsearch = require('elasticsearch');
 const commandLineArgs = require('command-line-args');
+const path = require('path');
 const {ObjectId} = require('mongodb');
 const options = commandLineArgs([
     {name: 'm_host', type: String},
@@ -21,12 +22,7 @@ const options = commandLineArgs([
 ]);
 
 
-function transformDoc(doc) {
-    delete doc._id;
-    doc = transformFunction(doc);
-    return doc;
 
-}
 
 class MongoAPI {
     constructor(db, collection, mongoSkipId) {
@@ -367,8 +363,7 @@ function parse_options() {
 
     }
 
-    options.m_transform = options.m_transform ? options.m_transform : 'transform.js';
-    transformFunction = require(`${options.m_transform}`).transform;
+    transformFunction = options.m_transform ?  require(path.join(process.cwd(),options.m_transform)).transform : function (doc) { return doc;};
     if (typeof transformFunction !== "function") {
         logging('error', 'Error in transform file/function, see Docs. Transform function should return doc');
         process.exit(0);
@@ -381,4 +376,11 @@ function parse_options() {
         logging('error', 'Error in mongodb query format, expects JSON');
         process.exit(0);
     }
+}
+
+function transformDoc(doc) {
+    delete doc._id;
+    doc = transformFunction(doc);
+    return doc;
+
 }

@@ -114,7 +114,7 @@ Options are:
      - Example ```--e_update_key updateKey``` | ```--e_update_key updateKey,true```
 
 
-- m_transform ```/absolute/path/filename.js```
+- m_transform ```relative path of transform.js```
      - optional
      - filename.js should export a function named 'transform'
      - This function should transform and return the doc
