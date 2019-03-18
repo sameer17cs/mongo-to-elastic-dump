@@ -110,6 +110,7 @@ Options are:
                 - Set ```true``` when ```updatekey``` is **THE** elasticsearch primary key. It is **faster**.
 
      - Options like ---m_query, -m_fields, --m_transform are valid
+     - It will update multiple docs (if found)
      - If elasticsearch throws error, try setting lower value for ```m_limit```
      - Example ```--e_update_key updateKey``` | ```--e_update_key updateKey,true```
 

@@ -22,8 +22,6 @@ const options = commandLineArgs([
 ]);
 
 
-
-
 class MongoAPI {
     constructor(db, collection, mongoSkipId) {
         this.db = db;
@@ -183,23 +181,26 @@ class ElasticAPI {
                                 return reject(err);
                             }
                             else {
-                                let searchedDocId = resp.hits.hits[0] ? resp.hits.hits[0]._id : null;
-                                if (searchedDocId) {
+                                let docsToUpdate = resp.hits.hits.length > 0 ? resp.hits.hits.map(y => y._id) : [];
 
-                                    // action description
-                                    updateBody.push({
-                                        update: {
-                                            _index: options.e_index,
-                                            _type: options.e_type,
-                                            _id: searchedDocId
-                                        }
+                                if (docsToUpdate.length > 0) {
+                                    docsToUpdate.forEach((eachUpdateId) => {
+
+                                        // action description
+                                        updateBody.push({
+                                            update: {
+                                                _index: options.e_index,
+                                                _type: options.e_type,
+                                                _id: eachUpdateId
+                                            }
+                                        });
+                                        // the document to update
+                                        updateBody.push({doc: transformDoc(x)});
                                     });
-                                    // the document to update
-                                    updateBody.push({doc: transformDoc(x)});
                                     return resolve();
                                 }
-                                //if no doc found, just resolve it
                                 else {
+                                    //if no doc found, just resolve it
                                     logging('debug', `Elastic No Document found for ${options.e_update_key[0]} ${x[options.e_update_key[0]]}`);
                                     return resolve();
                                 }
@@ -305,7 +306,6 @@ let totalDocs, docsRemaining, transformFunction;
 parse_options();
 
 
-
 // execution start
 MongoClient.connect(options.m_host, {useNewUrlParser: true}, function (err, client) {
     logging('info', "Mongo Connected successfully");
@@ -329,7 +329,6 @@ MongoClient.connect(options.m_host, {useNewUrlParser: true}, function (err, clie
         runner(mongoAPI, elasticAPI);
     });
 });
-
 
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -363,7 +362,9 @@ function parse_options() {
 
     }
 
-    transformFunction = options.m_transform ?  require(path.join(process.cwd(),options.m_transform)).transform : function (doc) { return doc;};
+    transformFunction = options.m_transform ? require(path.join(process.cwd(), options.m_transform)).transform : function (doc) {
+        return doc;
+    };
     if (typeof transformFunction !== "function") {
         logging('error', 'Error in transform file/function, see Docs. Transform function should return doc');
         process.exit(0);
