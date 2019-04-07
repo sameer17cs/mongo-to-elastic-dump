@@ -102,12 +102,12 @@ Options are:
     - optional
     - Use when you want to update elasticsearch docs by primary key or non-primary key.
     - It is JSON Document field name, whose value will be used to match document for update.
-    - ```updateKey``` key field should be present in both elasticsearch (with some mapping like term) and mongodb
-     - ```isPrimary```
-                - optional
-                - default: false
-                - Set ```false``` when ```updatekey``` is **NOT** elasticsearch primary key. It is slow.
+    - ```updateKey``` key field should be present in both elasticsearch and mongodb
+     - [OPTIONAL] ```isPrimary``` - default: false
                 - Set ```true``` when ```updatekey``` is **THE** elasticsearch primary key. It is **faster**.
+                - Set ```false``` when ```updatekey``` is **NOT** elasticsearch primary key. It is slow.
+                - When false, ```updateKey``` will be searched in elasticsearch using term query. Works best when ```updateKey``` is mapped as ```keyword```
+
 
      - Options like ---m_query, -m_fields, --m_transform are valid
      - It will update multiple docs (if found)
