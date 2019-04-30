@@ -103,23 +103,22 @@ Options are:
     - Use when you want to update elasticsearch docs by primary key or non-primary key.
     - It is JSON Document field name, whose value will be used to match document for update.
     - ```updateKey``` key field should be present in both elasticsearch and mongodb
-     - [OPTIONAL] ```isPrimary``` - default: false
+    - Options like ---m_query, -m_fields, --m_transform are valid
+    - Will update multiple docs (if found)
+    - If elasticsearch throws error, try setting lower value for ```m_limit```
+    - ```isPrimary``` - default: false
+                - [OPTIONAL]
                 - Set ```true``` when ```updatekey``` is **THE** elasticsearch primary key. It is **faster**.
                 - Set ```false``` when ```updatekey``` is **NOT** elasticsearch primary key. It is slow.
                 - When false, ```updateKey``` will be searched in elasticsearch using term query. Works best when ```updateKey``` is mapped as ```keyword```
-
-
-     - Options like ---m_query, -m_fields, --m_transform are valid
-     - It will update multiple docs (if found)
-     - If elasticsearch throws error, try setting lower value for ```m_limit```
-     - Example ```--e_update_key updateKey``` | ```--e_update_key updateKey,true```
+    - Example ```--e_update_key updateKey``` | ```--e_update_key updateKey,true```
 
 
 - m_transform ```relative path of transform.js```
      - optional
      - filename.js should export a function named 'transform'
      - This function should transform and return the doc
-     - ```'use strict';
+     - ```javascript
           function transform(doc)  {
               return doc;
           }
@@ -164,8 +163,6 @@ UPDATE DOCS IN ELASTIC BY TRANSFORM
 ```sh
 mongo-to-elastic-dump --m_host mongodb://localhost:27017 --m_db test_db --m_collection test_coll --e_host localhost:9200 --e_index test_index --e_type test_type --e_update_key updatekey --m_transform transform.js
 ```
-
-
 
 ### Todos
 
