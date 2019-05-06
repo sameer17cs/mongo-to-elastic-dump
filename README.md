@@ -5,17 +5,12 @@ mongo-to-elastic-dump is a command line tool for dumping data from mongodb to el
   - Feature to transform data before dumping
   - Both Insert and Update document
   - https://www.npmjs.com/package/mongo-to-elastic-dump
-
-# New Features!
-  - On Suggestions
-
-You can also:
-  - Use it as library module
+  - https://github.com/sameer17cs/mongo-to-elastic-dump
 
 ### Installation
 
-Requires [Node.js](https://nodejs.org/) v8+ to run.
-Works best with mongodb v4.x and elasticsearch v6.x
+Requires [Node.js](https://nodejs.org/) to run.
+Works best with mongodb ```v4.x``` and elasticsearch ```v6.x```, ```v7.x```
 
 ```sh
 $ npm install mongo-to-elastic-dump
@@ -92,6 +87,8 @@ Options are:
 - e_type ```String```
     - mandatory
     - Elastic index type mapping
+    - ```_type``` is required only for elasticsearch v6.0 or less. For higher versions, any value provided will be ignored
+    - If you are using elasticsearch v7.0+ , provide any dummy value.
 
 - e_doc_id ```String```
     - mandatory
@@ -107,10 +104,10 @@ Options are:
     - Will update multiple docs (if found)
     - If elasticsearch throws error, try setting lower value for ```m_limit```
     - ```isPrimary``` - default: false
-                - [OPTIONAL]
-                - Set ```true``` when ```updatekey``` is **THE** elasticsearch primary key. It is **faster**.
-                - Set ```false``` when ```updatekey``` is **NOT** elasticsearch primary key. It is slow.
-                - When false, ```updateKey``` will be searched in elasticsearch using term query. Works best when ```updateKey``` is mapped as ```keyword```
+        * [OPTIONAL]
+        * Set ```true``` when ```updatekey``` is **THE** elasticsearch primary key. It is **faster**.
+        * Set ```false``` when ```updatekey``` is **NOT** elasticsearch primary key. It is slow.
+        * When false, ```updateKey``` will be searched in elasticsearch using term query. Works best when ```updateKey``` is mapped as ```keyword```
     - Example ```--e_update_key updateKey``` | ```--e_update_key updateKey,true```
 
 

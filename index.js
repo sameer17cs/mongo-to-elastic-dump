@@ -76,16 +76,33 @@ class MongoAPI {
 class ElasticAPI {
     constructor(esClient) {
         this.esClient = esClient;
+        this.versionCheck(esClient);
+    }
+
+    versionCheck(esClient) {
+        esClient.info({}, (err, response) => {
+            if (err) {
+                process.exit('Elastic connection Failed');
+            }
+            else {
+                this.isTypeDepricated = parseInt(response.version.number) > 6;
+            }
+
+        })
     }
 
     insertDocs(docs, callback) {
 
         let body = [];
         docs.forEach((x) => {
-            // action description
-            body.push({index: {_index: options.e_index, _type: options.e_type, _id: x[options.e_doc_id]}});
-            // the document to index
+            let insertDescription = {_index: options.e_index, _id: x[options.e_doc_id]};
+            if (!this.isTypeDepricated) {
+                insertDescription['_type'] = options.e_type;
+            }
 
+            // action description
+            body.push({index: insertDescription});
+            // the document to index
             body.push(transformDoc(x))
         });
 
@@ -124,19 +141,17 @@ class ElasticAPI {
         if (options.e_update_key[1]) {
             let updateBody = [];
             docs.forEach((x) => {
+                let updateDescription = {_index: options.e_index, _id: x[options.e_update_key[0]]};
+                if (!_this.isTypeDepricated) {
+                    updateDescription['_type'] = options.e_type
+                }
+
                 // action description
-                updateBody.push({
-                    update: {
-                        _index: options.e_index,
-                        _type: options.e_type,
-                        _id: x[options.e_update_key[0]]
-                    }
-                });
+                updateBody.push({update: updateDescription});
                 // the document to update
                 updateBody.push({doc: transformDoc(x)});
             });
 
-            let _this = this;
             this.esClient.bulk({
                 body: updateBody
             }, function (err, resp) {
@@ -171,11 +186,16 @@ class ElasticAPI {
                     let searchBody = {_source: false, query: {term: {}}};
                     searchBody['query']['term'][options.e_update_key[0]] = {};
                     searchBody['query']['term'][options.e_update_key[0]]['value'] = x[options.e_update_key[0]];
-                    _this.esClient.search({
-                            index: options.e_index,
-                            type: options.e_type,
-                            body: searchBody
-                        },
+
+                    let searchQuery = {
+                        index: options.e_index,
+                        body: searchBody
+                    };
+
+                    if (!_this.isTypeDepricated) {
+                        searchQuery['type'] = options.e_type;
+                    }
+                    _this.esClient.search(searchQuery,
                         function (err, resp) {
                             if (err) {
                                 return reject(err);
@@ -185,15 +205,13 @@ class ElasticAPI {
 
                                 if (docsToUpdate.length > 0) {
                                     docsToUpdate.forEach((eachUpdateId) => {
+                                        let updateDescription = {_index: options.e_index, _id: eachUpdateId};
+                                        if (!_this.isTypeDepricated) {
+                                            updateDescription['_type'] = options.e_type
+                                        }
 
                                         // action description
-                                        updateBody.push({
-                                            update: {
-                                                _index: options.e_index,
-                                                _type: options.e_type,
-                                                _id: eachUpdateId
-                                            }
-                                        });
+                                        updateBody.push({update: updateDescription});
                                         // the document to update
                                         updateBody.push({doc: transformDoc(x)});
                                     });
