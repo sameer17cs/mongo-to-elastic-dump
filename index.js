@@ -21,7 +21,6 @@ const options = commandLineArgs([
     {name: 'e_update_key', type: String}
 ]);
 
-
 class MongoAPI {
     constructor(db, collection, mongoSkipId) {
         this.db = db;
@@ -286,7 +285,7 @@ function runner(mongoAPI, elasticAPI) {
                 elasticAPI.updateDocs(docs, () => {
                     docsRemaining = docsRemaining - docs.length;
                     mongoAPI.mongoSkipId = lastDocId;
-                    logging('info', 'Mongo next skip id to run ' + lastDocId.toString() + '\t Completed: ' + (((totalDocs - docsRemaining) / totalDocs).toFixed(2) * 100) + ' %');
+                    logging('info', 'Mongo next skip id to run ' + lastDocId.toString() + '\t Completed: ' + (((totalDocs - docsRemaining) / totalDocs) * 100).toFixed(2) + ' %');
                     return runner(mongoAPI, elasticAPI);
                 })
             }
@@ -295,13 +294,11 @@ function runner(mongoAPI, elasticAPI) {
                 elasticAPI.insertDocs(docs, () => {
                     docsRemaining = docsRemaining - docs.length;
                     mongoAPI.mongoSkipId = lastDocId;
-                    logging('info', 'Mongo next skip id to run ' + lastDocId.toString() + '\t Completed: ' + (((totalDocs - docsRemaining) / totalDocs).toFixed(2) * 100) + ' %');
+                    logging('info', 'Mongo next skip id to run ' + lastDocId.toString() + '\t Completed: ' + (((totalDocs - docsRemaining) / totalDocs) * 100).toFixed(2) + ' %');
                     return runner(mongoAPI, elasticAPI);
 
                 })
             }
-
-
         }
         else {
             logging('info', 'Sync Complete\n');
@@ -325,12 +322,11 @@ parse_options();
 
 
 // execution start
-MongoClient.connect(options.m_host, {useNewUrlParser: true}, function (err, client) {
+MongoClient.connect(options.m_host, {useNewUrlParser: true, useUnifiedTopology: true}, function (err, client) {
     logging('info', "Mongo Connected successfully");
 
     const db = client.db(options.m_db);
     const collection = db.collection(options.m_collection);
-
 
     const esClient = new elasticsearch.Client({
         host: options.e_host,
