@@ -1,6 +1,6 @@
 {
   "name": "mongo-to-elastic-dump",
-  "version": "1.3.3",
+  "version": "1.3.4",
   "dependencies": {
     "command-line-args": "^5.1.1",
     "elasticsearch": "^16.7.2",
