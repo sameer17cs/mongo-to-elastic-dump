@@ -89,6 +89,19 @@ Options are:
     - Document Primary key
     - JSON Document field name, whose value will be used as primary id in elasticsearch
 
+- m_transform ```relative path of transform.js```
+     - optional
+     - filename.js should export a function named 'transform'
+     - This function should transform and return the doc
+     - ```javascript
+          function transform(doc)  {
+              return doc;
+          }
+          module.exports = {
+              transform : transform
+          };
+       ```
+
 - e_update_key ```updatekey```  [, ```isPrimary``` ]
     - optional
     - Use when you want to update elasticsearch docs by primary key or non-primary key.
@@ -103,20 +116,6 @@ Options are:
         * Set ```false``` when ```updatekey``` is **NOT** elasticsearch primary key. It is slow.
         * When false, ```updateKey``` will be searched in elasticsearch using term query. Works best when ```updateKey``` is mapped as ```keyword```
     - Example ```--e_update_key updateKey``` | ```--e_update_key updateKey,true```
-
-
-- m_transform ```relative path of transform.js```
-     - optional
-     - filename.js should export a function named 'transform'
-     - This function should transform and return the doc
-     - ```javascript
-          function transform(doc)  {
-              return doc;
-          }
-          module.exports = {
-              transform : transform
-          };
-       ```
 
 ##### Example
 
@@ -154,10 +153,6 @@ UPDATE DOCS IN ELASTIC BY TRANSFORM
 ```sh
 mongo-to-elastic-dump --m_host localhost:27017 --m_db testdb --m_collection testcoll --e_host localhost:9200 --e_index testindex --e_update_key updatekey --m_transform transform.js
 ```
-
-### Todos
-
- - Performance test
 
 License
 ----

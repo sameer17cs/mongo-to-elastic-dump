@@ -1,7 +1,7 @@
 #!/bin/bash
 
 mongouri="localhost:27017"
-elasticuri="172.30.4.7:9200"
+elasticuri="localhost:9200"
 mongo_dbname="testdb"
 mongo_collname="testcoll"
 elastic_index="testindex"
