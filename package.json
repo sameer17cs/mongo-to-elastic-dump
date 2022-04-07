@@ -21,10 +21,15 @@
   },
   "keywords": [
     "mongo",
+    "mongodb",
     "elastic",
+    "elasticsearch",
+    "data transfer",
+    "sync",
     "dump",
     "transform",
     "fields",
+    "custom fields",
     "lightweight"
   ],
   "author": "sameer17cs",
