@@ -6,7 +6,7 @@
 'use strict';
 
 const MongoClient = require('mongodb').MongoClient;
-import { Client } from "@elastic/elasticsearch";
+const { Client } = require('@elastic/elasticsearch')
 const path = require('path');
 const { ObjectId } = require('mongodb');
 
@@ -17,67 +17,67 @@ Flags
   .setDefault("localhost:27017")
   .setDescription("mongodb host uri (mongodb://uri:port)");
 
-  Flags
+Flags
   .defineString("m_db", "tool")
   .setDefault()
   .setDescription("mongodb database to dump from (source)");
 
-  Flags
+Flags
   .defineString("e_host", "tool")
   .setDefault("localhost:9200")
   .setDescription("elasticsearch uri");
 
-  Flags
+Flags
   .defineString("e_index", "tool")
   .setDefault("localhost:9200")
   .setDescription("elasticsearch index to insert/update documents");
 
-  Flags
+Flags
   .defineString("m_collection", "tool")
   .setDefault()
   .setDescription("mongodb collection to dump from");
 
-  Flags
+Flags
   .defineNumber("m_limit", "tool")
   .setDefault(500)
   .setDescription("Per batch limit for mongo query");
 
-  Flags
+Flags
   .defineString("m_fields", "tool")
   .setDefault()
   .setDescription("Mongodb Document Fields to dump, comma separated string");
 
-  Flags
+Flags
   .defineString("m_query", "tool")
   .setDefault('{}')
   .setDescription("Mongodb query to extract dump");
 
-  Flags
+Flags
   .defineString("m_skip_id", "tool")
   .setDefault(null)
   .setDescription("Mongodb document id to start from");
 
-  Flags
+Flags
   .defineString("m_transform", "tool")
   .setDefault()
   .setDescription("relative path of transform.js file, where you can transform the document");
 
-  Flags
+Flags
   .defineString("e_doc_id", "tool")
   .setDefault()
   .setDescription("json document field name, whose value will be used as primray id in elasticsearch");
 
-  Flags
+Flags
   .defineString("e_update_key", "tool")
   .setDefault()
   .setDescription("json document field name, whose value will be used to match document for update");
 
-  Flags.parse();
+Flags.parse();
 
-  // global
+// global
 let total_docs, remaining_docs, transform_func;
 let elastic_api, mongo_api;
-let m_fields,m_query, e_update_key;
+let m_fields, m_query, e_update_key;
 
 class MongoAPI {
   constructor(collection, mongoSkipId) {
@@ -85,7 +85,7 @@ class MongoAPI {
     this.mongoSkipId = mongoSkipId;
   }
 
-  getDocs(callback) {
+  async getDocs() {
     if (this.mongoSkipId) {
       m_query["_id"] = { $gt: ObjectId(this.mongoSkipId) };
     }
@@ -93,302 +93,191 @@ class MongoAPI {
     m_fields.forEach((key) => {
       projection[key] = 1;
     });
-    this.collection
-      .find(m_query)
-      .project(projection)
-      .limit(Flags.get("m_limit"))
-      .toArray()
-      .then((docs) => {
-        return callback(docs);
-      })
-      .catch((err) => {
-        logging("error", err.message);
-        return this.getDocs(callback);
-      });
+    try {
+      const docs = await this.collection
+        .find(m_query)
+        .project(projection)
+        .limit(Flags.get("m_limit"))
+        .toArray();
+      return docs;
+    } catch (e) {
+      logging("error", e.message);
+      return this.getDocs();
+    }
   }
 
-  countDocs(callback) {
+  async countDocs() {
     if (this.mongoSkipId) {
       m_query["_id"] = { $gt: ObjectId(this.mongoSkipId) };
     }
-    this.collection
-      .find(query)
-      .count()
-      .then((count) => {
-        return callback(count);
-      })
-      .catch((err) => {
-        logging("error", err.message);
-        return this.countDocs(callback);
-      });
+    try {
+      const count = await this.collection.countDocuments(m_query);
+      return count;
+    } catch (e) {
+      logging("error", e.message);
+      return this.countDocs();
+    }
   }
 }
-
 class ElasticAPI {
-  constructor(esClient) {
-    this.esClient = esClient;
-    this.versionCheck(esClient);
+  constructor(es_client) {
+    this.es_client = es_client;
   }
 
-  async versionCheck(esClient) {
-    const response = await esClient.info({});
-    const deprecated = parseInt(response.version.number) > 6;
-    if (deprecated) {
-      logging('error', 'This tool doesnt support elasticsearch older than v6');
+  async versionCheck() {
+    try {
+      const response = await this.es_client.info({});
+      const version = parseInt(response.version.number);
+      logging('info', `Elasticsearch version is ${version}`);
+      if (version < 6) {
+        logging('error', 'This tool doesnt support elasticsearch older than v6');
+        process.exit();
+      }
+    }
+    catch (e) {
+      logging("error", e.message);
+      return this.versionCheck();
     }
   }
 
-  insertDocs(docs, callback) {
+  async insertDocs(docs) {
     const body = [];
     docs.forEach((x) => {
-      let insertDescription = {
-        _index: Flags.get("e_index"),
-        _id: x[Flags.get("e_doc_id")],
-      };
+      const description = { _index: Flags.get("e_index"), _id: x[Flags.get("e_doc_id")] };
       // action description
-      body.push({ index: insertDescription });
+      body.push({ index: description });
       // the document to index
       body.push(transformDoc(x));
     });
-
-    const _this = this;
-    this.esClient.bulk(
-      {
-        body: body,
-      },
-      function (err, resp) {
-        if (err) {
-          logging("error", err.message);
-          _this.esClient.indices.flush(
-            {
-              index: Flags.get("e_index"),
-            },
-            function (err, resp) {
-              if (err) {
-                logging("error", err.message);
-              }
-            }
-          );
-          return _this.insertDocs(docs, callback);
-        } else if (resp.errors) {
-          logging("error", JSON.stringify(resp));
-          return _this.insertDocs(docs, callback);
-        } else {
-          logging("info", "Elastic inserted docs, took " + resp.took + " secs");
-          return callback();
-        }
+    try {
+      const resp = await this.es_client.bulk({ body: body });
+      if (resp.errors) {
+        logging("error", JSON.stringify(resp));
+        return this.insertDocs(docs);
       }
-    );
+      logging("info", "Elastic inserted docs, took " + resp.took + " secs");
+      return;
+    }
+    catch (e) {
+      logging("error", err.message);
+      this.es_client.indices.flush({ index: Flags.get("e_index") }).catch()
+      return this.insertDocs(docs);
+    }
   }
 
-  updateDocs(docs, callback) {
-    const _this = this;
+  async updateDocs(docs) {
 
-    //when e_update_key[0] is also the field with value of elastic doc id.
+    /** when e_update_key[0] is also the field with value of elastic doc id. */
     if (e_update_key[1]) {
-      const updateBody = [];
-      docs.forEach((x) => {
-        let updateDescription = {
-          _index: Flags.get("e_index"),
-          _id: x[e_update_key[0]],
-        };
-        // action description
-        updateBody.push({ update: updateDescription });
-        // the document to update
-        updateBody.push({ doc: transformDoc(x) });
-      });
-
-      this.esClient.bulk(
-        {
-          body: updateBody,
-        },
-        function (err, resp) {
-          if (err) {
-            logging("error", err.message);
-            _this.esClient.indices.flush(
-              {
-                index: Flags.get("e_index"),
-              },
-              function (err, resp) {
-                if (err) {
-                  logging("error", err.message);
-                }
-              }
-            );
-            return _this.updateDocs(docs, callback);
-          } else if (resp.errors) {
-            logging("error", JSON.stringify(resp));
-            return _this.updateDocs(docs, callback);
-          } else {
-            logging(
-              "info",
-              "Elastic updated docs, took " + resp.took + " secs"
-            );
-            return callback();
-          }
+      try {
+        const update_body = [];
+        docs.forEach((x) => {
+          const description = { _index: Flags.get("e_index"), _id: x[e_update_key[0]] };
+          update_body.push({ update: description });    // action description
+          update_body.push({ doc: transformDoc(x) });   // the document to update
+        });
+        const resp = await this.es_client.bulk({ body: update_body });
+        if (resp.errors) {
+          logging("error", JSON.stringify(resp));
+          return this.updateDocs(docs);
         }
-      );
+        logging("info", "Elastic updated docs, took " + resp.took + " secs");
+        return;
+      }
+      catch (e) {
+        logging("error", err.message);
+        this.es_client.indices.flush({ index: Flags.get("e_index") }).catch();
+        return this.updateDocs(docs);
+      }
     }
 
     //when e_update_key[0] value is different from elastic doc id.
     else {
-      const updateBody = [];
-      let searchPromises = docs.map((x) => {
-        return new Promise((resolve, reject) => {
-          let searchBody = { _source: false, query: { term: {} } };
-          searchBody["query"]["term"][e_update_key[0]] = {};
-          searchBody["query"]["term"][e_update_key[0]]["value"] =
-            x[e_update_key[0]];
+      const update_body = [];
+      try {
+        for (let i = 0; i < docs.length; i++) {
+          const search_body = { _source: false, query: { term: {} } };
+          search_body["query"]["term"][e_update_key[0]] = {};
+          search_body["query"]["term"][e_update_key[0]]["value"] = docs[i][e_update_key[0]];
 
-          let searchQuery = {
-            index: Flags.get("e_index"),
-            body: searchBody,
-          };
-
-          _this.esClient.search(searchQuery, function (err, resp) {
-            if (err) {
-              return reject(err);
-            } else {
-              let docsToUpdate =
-                resp.hits.hits.length > 0
-                  ? resp.hits.hits.map((y) => y._id)
-                  : [];
-
-              if (docsToUpdate.length > 0) {
-                docsToUpdate.forEach((eachUpdateId) => {
-                  let updateDescription = {
-                    _index: Flags.get("e_index"),
-                    _id: eachUpdateId,
-                  };
-
-                  // action description
-                  updateBody.push({ update: updateDescription });
-                  // the document to update
-                  updateBody.push({ doc: transformDoc(x) });
-                });
-                return resolve();
-              } else {
-                //if no doc found, just resolve it
-                logging(
-                  "debug",
-                  `Elastic No Document found for ${e_update_key[0]} ${
-                    x[e_update_key[0]]
-                  }`
-                );
-                return resolve();
-              }
-            }
-          });
-        });
-      });
-
-      Promise.all(searchPromises)
-        .then(() => {
-          if (updateBody.length > 0) {
-            this.esClient.bulk(
-              {
-                body: updateBody,
-              },
-              function (err, resp) {
-                if (err) {
-                  logging("error", err.message);
-                  _this.esClient.indices.flush(
-                    {
-                      index: Flags.get("e_index"),
-                    },
-                    function (err, resp) {
-                      if (err) {
-                        logging("error", err.message);
-                      }
-                    }
-                  );
-                  return _this.updateDocs(docs, callback);
-                } else if (resp.errors) {
-                  logging("error", JSON.stringify(resp));
-                  return _this.updateDocs(docs, callback);
-                } else {
-                  logging(
-                    "info",
-                    "Elastic updated batch, took " + resp.took + " secs"
-                  );
-                  return callback();
-                }
-              }
-            );
-          } else {
-            logging("info", "Elastic no docs to update in this batch ..");
-            return callback();
+          const search_query = { index: Flags.get("e_index"), body: search_body };
+          const resp = await this.es_client.search(search_query);
+          const docs_to_update = (resp.hits.hits.length > 0) ? resp.hits.hits.map((y) => y._id) : [];
+          if (docs_to_update.length == 0) {
+            logging("debug", `Elastic No Document found for ${e_update_key[0]} ${docs[i][e_update_key[0]]}`);
+            continue;
           }
-        })
-        .catch((err) => {
-          logging("error", err.message);
-          _this.esClient.indices.flush(
-            {
-              index: Flags.get("e_index"),
-            },
-            function (err, resp) {
-              if (err) {
-                logging("error", err.message);
-              }
-            }
-          );
-          return _this.updateDocs(docs, callback);
-        });
+          docs_to_update.forEach((eachUpdateId) => {
+            const description = { _index: Flags.get("e_index"), _id: eachUpdateId };
+            update_body.push({ update: description });    // action description
+            update_body.push({ doc: transformDoc(docs[i]) });   // the document to update
+          });
+        }
+
+        if (update_body.length == 0) {
+          logging("info", "Elastic no docs to update in this batch ..");
+          return;
+        }
+
+        const resp = await this.es_client.bulk({ body: update_body });
+        if (resp.errors) {
+          logging("error", JSON.stringify(resp));
+          return this.updateDocs(docs);
+        }
+        logging("info", "Elastic updated batch, took " + resp.took + " secs");
+        return;
+      }
+      catch (e) {
+        logging("error", e.message);
+        this.es_client.indices.flush({ index: Flags.get("e_index") }).catch();
+        return this.updateDocs(docs);
+      }
     }
   }
 }
 
-function runner() {
-  mongo_api.get_docs((docs) => {
-    if (docs.length > 0) {
-      logging('debug', 'Mongo Batch Fetched');
-      let lastDocId = docs[docs.length - 1]._id;
+async function runner() {
+  const docs = await mongo_api.getDocs();
+  if (docs.length == 0) {
+    logging('info', 'Sync Complete\n');
+    process.exit(0);
+  }
+  logging('debug', 'Mongo Batch Fetched');
+  const lastDocId = docs[docs.length - 1]._id;
 
-      if (e_update_key) {
-        elastic_api.updateDocs(docs, () => {
-          remaining_docs = remaining_docs - docs.length;
-          mongo_api.mongoSkipId = lastDocId;
-          logging('info', 'Mongo next skip id to run ' + lastDocId.toString() + '\t Completed: ' + (((total_docs - remaining_docs) / total_docs) * 100).toFixed(2) + ' %');
-          return runner();
-        })
-      }
+  if (e_update_key) {
+    await elastic_api.updateDocs(docs);
+    remaining_docs = remaining_docs - docs.length;
+    mongo_api.mongoSkipId = lastDocId;
+    logging('info', 'Mongo next skip id to run ' + lastDocId.toString() + '\t Completed: ' + (((total_docs - remaining_docs) / total_docs) * 100).toFixed(2) + ' %');
+    runner();
+    return;
+  }
 
-      else {
-        elastic_api.insertDocs(docs, () => {
-          remaining_docs = remaining_docs - docs.length;
-          mongo_api.mongoSkipId = lastDocId;
-          logging('info', 'Mongo next skip id to run ' + lastDocId.toString() + '\t Completed: ' + (((total_docs - remaining_docs) / total_docs) * 100).toFixed(2) + ' %');
-          return runner();
-        })
-      }
-    }
-    else {
-      logging('info', 'Sync Complete\n');
-      process.exit(0);
-    }
-  });
+  await elastic_api.insertDocs(docs);
+  remaining_docs = remaining_docs - docs.length;
+  mongo_api.mongoSkipId = lastDocId;
+  logging('info', 'Mongo next skip id to run ' + lastDocId.toString() + '\t Completed: ' + (((total_docs - remaining_docs) / total_docs) * 100).toFixed(2) + ' %');
+  runner();
+  return;
 }
 
 async function initMongoAPI() {
-  const mclient = await MongoClient.connect(Flags.get('m_host'), {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  });
+  const mclient = await MongoClient.connect(`mongodb://${Flags.get('m_host')}`, { useNewUrlParser: true, useUnifiedTopology: true });
   const db = mclient.db(Flags.get('m_db'));
   const collection = db.collection(Flags.get('m_collection'));
   logging("info", "Mongo Connected successfully");
   const mongoSkipId = Flags.get("m_skip_id");
-  mongo_api = new MongoAPI(db, collection, mongoSkipId);
+  mongo_api = new MongoAPI(collection, mongoSkipId);
   return;
 }
 
 async function initElasticsearchAPI() {
-  const esClient = new Client({ node: elastic_uri, log: "error" });
+  const es_client = new Client({ node: `http://${Flags.get('e_host')}`, log: "error" });
   logging("info", "Elasticsearch Connected successfully");
-  elastic_api = new ElasticAPI(esClient);
+  elastic_api = new ElasticAPI(es_client);
   return;
 }
-
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Helper Functions
@@ -411,8 +300,8 @@ function parseInput() {
   transform_func = Flags.get("m_transform")
     ? require(path.join(process.cwd(), Flags.get('m_transform'))).transform
     : function (doc) {
-        return doc;
-      };
+      return doc;
+    };
 
   if (typeof transform_func !== "function") {
     logging('error', 'Error in transform file/function, see Docs. Transform function should return doc');
@@ -447,13 +336,12 @@ function logging(level, message) {
 
 /** Main starts from here */
 async function main() {
-  // validations
   if (
-    Flags.get("m_host") ||
-    Flags.get("m_db") ||
-    Flags.get("m_collection") ||
-    Flags.get("e_host") ||
-    Flags.get("e_index") ||
+    !Flags.get("m_host") ||
+    !Flags.get("m_db") ||
+    !Flags.get("m_collection") ||
+    !Flags.get("e_host") ||
+    !Flags.get("e_index") ||
     !(Flags.get("e_doc_id") || Flags.get("e_update_key"))
   ) {
     logging("error", "Mandatory params are missing :(");
@@ -462,15 +350,13 @@ async function main() {
 
   /**parse options and transform */
   parseInput();
-
   await initMongoAPI();
   await initElasticsearchAPI();
-
-  mongo_api.count_docs((count) => {
-    total_docs = count;
-    remaining_docs = count;
-    runner();
-  });
+  await elastic_api.versionCheck();
+  const count = await mongo_api.countDocs();
+  total_docs = count;
+  remaining_docs = count;
+  runner();
 }
 
 main();
