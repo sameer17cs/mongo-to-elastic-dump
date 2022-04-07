@@ -41,7 +41,7 @@ Options are:
 
 - m_host ```String```
      - mandatory
-     - mongodb host uri (mongodb://uri:port)
+     - mongodb host uri (uri:port)
 
 - m_db ```String```
      - mandatory
@@ -84,16 +84,10 @@ Options are:
     - mandatory
     - Elastic index to insert/update documents
 
-- e_type ```String```
-    - mandatory
-    - Elastic index type mapping
-    - ```_type``` is required only for elasticsearch v6.0 or less. For higher versions, any value provided will be ignored
-    - If you are using elasticsearch v7.0+ , provide any dummy value.
-
 - e_doc_id ```String```
     - mandatory
     - Document Primary key
-    - JSON Document key name (field name), whose value will be used as document id (_id) in elasticsearch
+    - JSON Document field name, whose value will be used as primary id in elasticsearch
 
 - e_update_key ```updatekey```  [, ```isPrimary``` ]
     - optional
@@ -128,37 +122,37 @@ Options are:
 
 INSERT DOCS
 ```sh
-mongo-to-elastic-dump --m_host mongodb://localhost:27017 --m_db test_db --m_collection test_coll --e_host localhost:9200 --e_index test_index --e_type test_type  --e_doc_id doc_key
+mongo-to-elastic-dump --m_host localhost:27017 --m_db testdb --m_collection testcoll --e_host localhost:9200 --e_index testindex --e_doc_id uuid
 ```
 
 INSERT SELECT DOCS BY MONGODB QUERY
 ```sh
-mongo-to-elastic-dump --m_host mongodb://localhost:27017 --m_db test_db --m_collection test_coll --e_host localhost:9200 --e_index test_index --e_type test_type  --e_doc_id doc_key  --m_query '{}'
+mongo-to-elastic-dump --m_host localhost:27017 --m_db testdb --m_collection testcoll --e_host localhost:9200 --e_index testindex --e_doc_id uuid  --m_query '{}'
 ```
 
 INSERT SELECT FIELDS
 ```sh
-mongo-to-elastic-dump --m_host mongodb://localhost:27017 --m_db test_db --m_collection test_coll --e_host localhost:9200 --e_index test_index --e_type test_type  --e_doc_id doc_key  --m_fields field1,field2,field3
+mongo-to-elastic-dump --m_host localhost:27017 --m_db testdb --m_collection testcoll --e_host localhost:9200 --e_index testindex --e_doc_id uuid  --m_fields field1,field2,field3
 ```
 
 INSERT TRANSFORMED DOCS
 ```sh
-mongo-to-elastic-dump --m_host mongodb://localhost:27017 --m_db test_db --m_collection test_coll --e_host localhost:9200 --e_index test_index --e_type test_type --e_doc_id doc_key --m_transform transform.js
+mongo-to-elastic-dump --m_host localhost:27017 --m_db testdb --m_collection testcoll --e_host localhost:9200 --e_index testindex --e_doc_id uuid --m_transform transform.js
 ```
 
 UPDATE DOCS IN ELASTIC BY GIVEN PRIMARY ```updatekey```
 ```sh
-mongo-to-elastic-dump --m_host mongodb://localhost:27017 --m_db test_db --m_collection test_coll --e_host localhost:9200 --e_index test_index --e_update_key updatekey,true
+mongo-to-elastic-dump --m_host localhost:27017 --m_db testdb --m_collection testcoll --e_host localhost:9200 --e_index testindex --e_update_key updatekey,true
 ```
 
 UPDATE DOCS IN ELASTIC BY GIVEN NON-PRIMARY ```updatekey``` (should be mapped in elasticsearch)
 ```sh
-mongo-to-elastic-dump --m_host mongodb://localhost:27017 --m_db test_db --m_collection test_coll --e_host localhost:9200 --e_index test_index --e_update_key updatekey
+mongo-to-elastic-dump --m_host localhost:27017 --m_db testdb --m_collection testcoll --e_host localhost:9200 --e_index testindex --e_update_key updatekey
 ```
 
 UPDATE DOCS IN ELASTIC BY TRANSFORM
 ```sh
-mongo-to-elastic-dump --m_host mongodb://localhost:27017 --m_db test_db --m_collection test_coll --e_host localhost:9200 --e_index test_index --e_type test_type --e_update_key updatekey --m_transform transform.js
+mongo-to-elastic-dump --m_host localhost:27017 --m_db testdb --m_collection testcoll --e_host localhost:9200 --e_index testindex --e_update_key updatekey --m_transform transform.js
 ```
 
 ### Todos
