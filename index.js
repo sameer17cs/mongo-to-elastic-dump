@@ -94,14 +94,17 @@ class MongoAPI {
       projection[key] = 1;
     });
     try {
+      const t_start = Date.now();
       const docs = await this.collection
         .find(m_query)
         .project(projection)
         .limit(Flags.get("m_limit"))
         .toArray();
+
+      logging("debug", `Mongodb get batch took: ${(Date.now() - t_start)} ms`);
       return docs;
     } catch (e) {
-      logging("error", e.message);
+      logging("error", `Mongodb get : ${e.message}`);
       return this.getDocs();
     }
   }
@@ -159,11 +162,11 @@ class ElasticAPI {
         logging("error", JSON.stringify(resp));
         return this.insertDocs(docs);
       }
-      logging("info", "Elastic inserted docs, took " + resp.took + " secs");
+      logging("debug", `Elasticsearch upserted batch, took ${resp.took} msecs`);
       return;
     }
     catch (e) {
-      logging("error", err.message);
+      logging("error", `Elasticsearch bulk: ${err.message}`);
       this.es_client.indices.flush({ index: Flags.get("e_index") }).catch()
       return this.insertDocs(docs);
     }
@@ -185,11 +188,11 @@ class ElasticAPI {
           logging("error", JSON.stringify(resp));
           return this.updateDocs(docs);
         }
-        logging("info", "Elastic updated docs, took " + resp.took + " secs");
+        logging("info", "Elasticsearch updated batch, took " + resp.took + " secs");
         return;
       }
       catch (e) {
-        logging("error", err.message);
+        logging("error",`Elasticsearch bulk: ${err.message}`);
         this.es_client.indices.flush({ index: Flags.get("e_index") }).catch();
         return this.updateDocs(docs);
       }
@@ -208,7 +211,7 @@ class ElasticAPI {
           const resp = await this.es_client.search(search_query);
           const docs_to_update = (resp.hits.hits.length > 0) ? resp.hits.hits.map((y) => y._id) : [];
           if (docs_to_update.length == 0) {
-            logging("debug", `Elastic No Document found for ${e_update_key[0]} ${docs[i][e_update_key[0]]}`);
+            logging("debug", `Elasticsearch No Document found for ${e_update_key[0]} ${docs[i][e_update_key[0]]}`);
             continue;
           }
           docs_to_update.forEach((eachUpdateId) => {
@@ -219,7 +222,7 @@ class ElasticAPI {
         }
 
         if (update_body.length == 0) {
-          logging("info", "Elastic no docs to update in this batch ..");
+          logging("info", "Elasticsearch no docs to update in this batch ..");
           return;
         }
 
@@ -228,11 +231,11 @@ class ElasticAPI {
           logging("error", JSON.stringify(resp));
           return this.updateDocs(docs);
         }
-        logging("info", "Elastic updated batch, took " + resp.took + " secs");
+        logging("info", "Elasticsearch updated batch, took " + resp.took + " secs");
         return;
       }
       catch (e) {
-        logging("error", e.message);
+        logging("error", `Elasticsearch bulk: ${e.message}`);
         this.es_client.indices.flush({ index: Flags.get("e_index") }).catch();
         return this.updateDocs(docs);
       }
@@ -241,19 +244,19 @@ class ElasticAPI {
 }
 
 async function runner() {
+  const t_start = Date.now();
   const docs = await mongo_api.getDocs();
   if (docs.length == 0) {
     logging('info', 'Sync Complete\n');
     process.exit(0);
   }
-  logging('debug', 'Mongo Batch Fetched');
   const lastDocId = docs[docs.length - 1]._id;
 
   if (e_update_key) {
     await elastic_api.updateDocs(docs);
     remaining_docs = remaining_docs - docs.length;
     mongo_api.mongoSkipId = lastDocId;
-    logging('info', 'Mongo next skip id to run ' + lastDocId.toString() + '\t Completed: ' + (((total_docs - remaining_docs) / total_docs) * 100).toFixed(2) + ' %');
+    logging('info', 'Mongodb next skip id to run ' + lastDocId.toString() + `\t took: ${(Date.now() - t_start)} ms` + '\t Completed: ' + (((total_docs - remaining_docs) / total_docs) * 100).toFixed(2) + ' %');
     runner();
     return;
   }
@@ -261,7 +264,7 @@ async function runner() {
   await elastic_api.insertDocs(docs);
   remaining_docs = remaining_docs - docs.length;
   mongo_api.mongoSkipId = lastDocId;
-  logging('info', 'Mongo next skip id to run ' + lastDocId.toString() + '\t Completed: ' + (((total_docs - remaining_docs) / total_docs) * 100).toFixed(2) + ' %');
+  logging('info', 'Mongodb next skip id to run ' + lastDocId.toString() + `\t took: ${(Date.now() - t_start)} ms` + '\t Completed: ' + (((total_docs - remaining_docs) / total_docs) * 100).toFixed(2) + ' %');
   runner();
   return;
 }
@@ -270,7 +273,7 @@ async function initMongoAPI() {
   const mclient = await MongoClient.connect(`mongodb://${Flags.get('m_host')}`, { useNewUrlParser: true, useUnifiedTopology: true });
   const db = mclient.db(Flags.get('m_db'));
   const collection = db.collection(Flags.get('m_collection'));
-  logging("info", "Mongo Connected successfully");
+  logging("info", "Mongodb Connected successfully");
   const mongoSkipId = Flags.get("m_skip_id");
   mongo_api = new MongoAPI(collection, mongoSkipId);
   return;
@@ -348,7 +351,7 @@ async function main() {
     !Flags.get("e_index") ||
     !(Flags.get("e_doc_id") || Flags.get("e_update_key"))
   ) {
-    logging("error", "Mandatory params are missing :(");
+    logging("error", "Thou Shalt Not Pass without Mandatory parameters");
     process.exit(0);
   }
 
