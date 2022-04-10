@@ -107,11 +107,15 @@ class MongoAPI {
   }
 
   async countDocs() {
-    if (this.mongoSkipId) {
-      m_query["_id"] = { $gt: ObjectId(this.mongoSkipId) };
-    }
     try {
-      const count = await this.collection.countDocuments(m_query);
+      logging("info","Getting total count of docs from mongodb collection (may take a while depending on collection size) ...");
+      let count = null;
+      if (this.mongoSkipId) {
+        count = await this.collection.countDocuments({_id: {$gt: ObjectId(this.mongoSkipId)}});
+      } else {
+        count = await this.collection.estimatedDocumentCount();
+      }
+      logging("info","Total docs count of docs: " + count);
       return count;
     } catch (e) {
       logging("error", e.message);
