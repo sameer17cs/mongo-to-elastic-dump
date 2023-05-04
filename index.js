@@ -78,6 +78,11 @@ Flags
   .setDefault()
   .setDescription("elasticsearch auth credentials");
 
+Flags
+  .defineString("e_action", "tool")
+  .setDefault("index")
+  .setDescription("elasticsearch action to perform on document (index/create)");
+
 Flags.parse();
 
 // global
@@ -161,9 +166,15 @@ class ElasticAPI {
     docs.forEach((x) => {
       const description = { _index: Flags.get("e_index"), _id: x[Flags.get("e_doc_id")] };
       // action description
-      body.push({ index: description });
+      let header = {};
+      header[Flags.get("e_action")] = description;
+      body.push(header);
       // the document to index
-      body.push(transformDoc(x));
+      let doc = transformDoc(x);
+      if (Flags.get("e_action") === "create" && !doc["@timestamp"]) {
+        doc["@timestamp"] = new Date();
+      }
+      body.push(doc);
     });
     try {
       const resp = await this.es_client.bulk({ body: body });
