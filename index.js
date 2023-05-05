@@ -113,6 +113,7 @@ class MongoAPI {
         .find(m_query)
         .project(projection)
         .limit(Flags.get("m_limit"))
+        .sort({ _id: 1 })
         .toArray();
 
       logging("debug", `Mongodb get batch took: ${(Date.now() - t_start)} ms`);
