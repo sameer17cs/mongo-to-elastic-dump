@@ -29,6 +29,11 @@ Flags
   .setDescription("elasticsearch uri");
 
 Flags
+  .defineString("e_auth", "tool")
+  .setDefault()
+  .setDescription("elasticsearch auth credentials");
+
+Flags
   .defineString("e_index", "tool")
   .setDefault("localhost:9200")
   .setDescription("elasticsearch index to insert/update documents");
@@ -72,11 +77,6 @@ Flags
   .defineString("e_update_key", "tool")
   .setDefault()
   .setDescription("json document field name, whose value will be used to match document for update");
-
-Flags
-  .defineString("e_auth", "tool")
-  .setDefault()
-  .setDescription("elasticsearch auth credentials");
 
 Flags
   .defineString("e_action", "tool")
@@ -167,11 +167,15 @@ class ElasticAPI {
     docs.forEach((x) => {
       const description = { _index: Flags.get("e_index"), _id: x[Flags.get("e_doc_id")] };
       // action description
-      let header = {};
+      const header = {};
+
       header[Flags.get("e_action")] = description;
+      
       body.push(header);
+      
       // the document to index
-      let doc = transformDoc(x);
+      const doc = transformDoc(x);
+
       if (Flags.get("e_action") === "create" && !doc["@timestamp"]) {
         doc["@timestamp"] = new Date();
       }
@@ -307,7 +311,7 @@ async function initElasticsearchAPI() {
   const connectUrl = Flags.get('e_host').includes('://')
     ? Flags.get('e_host')
     : `http://${Flags.get('e_host')}`;
-  const authOptions = Flags.get('e_auth') ? JSON.parse(Flags.get('e_auth')) : undefined;
+  const authOptions = Flags.get('e_auth') ? JSON.parse(Flags.get('e_auth')) : null;
   const es_client = new Client({ node: connectUrl, auth : authOptions, log: "error" });
   logging("info", "Elasticsearch Connected successfully");
   elastic_api = new ElasticAPI(es_client);

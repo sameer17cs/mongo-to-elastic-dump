@@ -80,6 +80,10 @@ Options are:
      - mandatory
      - Elasticsearch uri (localhost:9200)
 
+- e_auth ```Object```
+     - Optional
+     - Elasticsearch authentication
+
 - e_index ```String```
     - mandatory
     - Elastic index to insert/update documents
@@ -93,14 +97,7 @@ Options are:
      - optional
      - filename.js should export a function named 'transform'
      - This function should transform and return the doc
-     - ```javascript
-          function transform(doc)  {
-              return doc;
-          }
-          module.exports = {
-              transform : transform
-          };
-       ```
+     - Example: transform-examples/timestamp-created.js
 
 - e_update_key ```updatekey```  [, ```isPrimary``` ]
     - optional
@@ -117,6 +114,10 @@ Options are:
         * When false, ```updateKey``` will be searched in elasticsearch using term query. Works best when ```updateKey``` is mapped as ```keyword```
     - Example ```--e_update_key updateKey``` | ```--e_update_key updateKey,true```
 
+ - e_action ```String```
+    - Mandatory
+    - Default: index
+    - Elasticsearch action to perform on document: index OR create
 ##### Example
 
 INSERT DOCS
