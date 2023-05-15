@@ -9,6 +9,7 @@ const MongoClient = require('mongodb').MongoClient;
 const { Client } = require('@elastic/elasticsearch')
 const path = require('path');
 const { ObjectId } = require('mongodb');
+const { EJSON } = require('bson');
 
 const Flags = require("flags");
 
@@ -72,6 +73,16 @@ Flags
   .setDefault()
   .setDescription("json document field name, whose value will be used to match document for update");
 
+Flags
+  .defineString("e_auth", "tool")
+  .setDefault()
+  .setDescription("elasticsearch auth credentials");
+
+Flags
+  .defineString("e_action", "tool")
+  .setDefault("index")
+  .setDescription("elasticsearch action to perform on document (index/create)");
+
 Flags.parse();
 
 // global
@@ -87,7 +98,10 @@ class MongoAPI {
 
   async getDocs() {
     if (this.mongoSkipId) {
-      m_query["_id"] = { $gt: ObjectId(this.mongoSkipId) };
+      const queryId = (typeof this.mongoSkipId === "string")
+        ? this.mongoSkipId
+        : ObjectId(this.mongoSkipId);
+      m_query["_id"] = { $gt: queryId };
     }
     const projection = {};
     m_fields.forEach((key) => {
@@ -99,6 +113,7 @@ class MongoAPI {
         .find(m_query)
         .project(projection)
         .limit(Flags.get("m_limit"))
+        .sort({ _id: 1 })
         .toArray();
 
       logging("debug", `Mongodb get batch took: ${(Date.now() - t_start)} ms`);
@@ -152,9 +167,15 @@ class ElasticAPI {
     docs.forEach((x) => {
       const description = { _index: Flags.get("e_index"), _id: x[Flags.get("e_doc_id")] };
       // action description
-      body.push({ index: description });
+      let header = {};
+      header[Flags.get("e_action")] = description;
+      body.push(header);
       // the document to index
-      body.push(transformDoc(x));
+      let doc = transformDoc(x);
+      if (Flags.get("e_action") === "create" && !doc["@timestamp"]) {
+        doc["@timestamp"] = new Date();
+      }
+      body.push(doc);
     });
     try {
       const resp = await this.es_client.bulk({ body: body });
@@ -270,7 +291,10 @@ async function runner() {
 }
 
 async function initMongoAPI() {
-  const mclient = await MongoClient.connect(`mongodb://${Flags.get('m_host')}`, { useNewUrlParser: true, useUnifiedTopology: true });
+  const connectUrl = Flags.get('m_host').includes('://')
+    ? Flags.get('m_host')
+    : `mongodb://${Flags.get('m_host')}`;; 
+  const mclient = await MongoClient.connect(connectUrl, { useNewUrlParser: true, useUnifiedTopology: true });
   const db = mclient.db(Flags.get('m_db'));
   const collection = db.collection(Flags.get('m_collection'));
   logging("info", "Mongodb Connected successfully");
@@ -280,7 +304,11 @@ async function initMongoAPI() {
 }
 
 async function initElasticsearchAPI() {
-  const es_client = new Client({ node: `http://${Flags.get('e_host')}`, log: "error" });
+  const connectUrl = Flags.get('e_host').includes('://')
+    ? Flags.get('e_host')
+    : `http://${Flags.get('e_host')}`;
+  const authOptions = Flags.get('e_auth') ? JSON.parse(Flags.get('e_auth')) : undefined;
+  const es_client = new Client({ node: connectUrl, auth : authOptions, log: "error" });
   logging("info", "Elasticsearch Connected successfully");
   elastic_api = new ElasticAPI(es_client);
   return;
@@ -316,7 +344,7 @@ function parseInput() {
   }
 
   try {
-    m_query = Flags.get('m_query') ? JSON.parse(Flags.get('m_query')) : {};
+    m_query = Flags.get('m_query') ? EJSON.parse(Flags.get('m_query')) : {};
   }
   catch (e) {
     logging('error', 'Error in mongodb query format, expects JSON');
