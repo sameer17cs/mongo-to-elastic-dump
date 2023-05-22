@@ -100,7 +100,7 @@ class MongoAPI {
     if (this.mongoSkipId) {
       const queryId = (typeof this.mongoSkipId === "string")
         ? this.mongoSkipId
-        : ObjectId(this.mongoSkipId);
+        : new ObjectId(this.mongoSkipId);
       m_query["_id"] = { $gt: queryId };
     }
     const projection = {};
@@ -357,15 +357,20 @@ function parseInput() {
 }
 
 function logging(level, message) {
+  const now = new Date();
+  const options = { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+  const formatter = new Intl.DateTimeFormat('en-US', options);
+  const formattedDateTime = formatter.format(now);
+
   switch (level) {
     case 'error':
-      console.error(`[${new Date().toLocaleTimeString()}] ${message}`);
+      console.error(`[${formattedDateTime}] ${message}`);
       break;
     case 'info':
-      console.info(`[${new Date().toLocaleTimeString()}] ${message}`);
+      console.info(`[${formattedDateTime}] ${message}`);
       break;
     case 'debug':
-      console.debug(`[${new Date().toLocaleTimeString()}] ${message}`);
+      console.debug(`[${formattedDateTime}] ${message}`);
       break;
     default:
     // code block
@@ -383,7 +388,7 @@ async function main() {
     !Flags.get("e_index") ||
     !(Flags.get("e_doc_id") || Flags.get("e_update_key"))
   ) {
-    logging("error", "Thou Shalt Not Pass without Mandatory parameters");
+    logging("error", "Thou Shall Not Pass without Mandatory parameters");
     process.exit(0);
   }
 

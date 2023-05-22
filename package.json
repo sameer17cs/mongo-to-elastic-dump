@@ -2,9 +2,9 @@
   "name": "mongo-to-elastic-dump",
   "version": "2.0.4",
   "dependencies": {
-    "@elastic/elasticsearch": "^8.1.0",
+    "@elastic/elasticsearch": "^8.7.0",
     "flags": "^0.1.3",
-    "mongodb": "^4.5.0"
+    "mongodb": "^5.5.0"
   },
   "description": "Dump records from mongo to elastic",
   "main": "index.js",

@@ -7,7 +7,7 @@ mongo_collname="testcoll"
 elastic_index="testindex"
 fields="uuid,name,address"
 
-if [[ $1 == "insert" ]]
+if [[ $1 == "upsert" ]]
 then
    node index.js --m_host $mongouri --m_db $mongo_dbname --m_collection $mongo_collname --e_host $elasticuri --e_index $elastic_index --e_doc_id uuid --m_limit 1
 

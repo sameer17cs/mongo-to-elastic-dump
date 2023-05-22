@@ -120,22 +120,22 @@ Options are:
     - Elasticsearch action to perform on document: index OR create
 ##### Example
 
-INSERT DOCS
+UPSERT DOCS
 ```sh
 mongo-to-elastic-dump --m_host localhost:27017 --m_db testdb --m_collection testcoll --e_host localhost:9200 --e_index testindex --e_doc_id uuid
 ```
 
-INSERT SELECT DOCS BY MONGODB QUERY
+UPSERT SELECT DOCS BY MONGODB QUERY
 ```sh
 mongo-to-elastic-dump --m_host localhost:27017 --m_db testdb --m_collection testcoll --e_host localhost:9200 --e_index testindex --e_doc_id uuid  --m_query '{}'
 ```
 
-INSERT SELECT FIELDS
+UPSERT SELECT FIELDS
 ```sh
 mongo-to-elastic-dump --m_host localhost:27017 --m_db testdb --m_collection testcoll --e_host localhost:9200 --e_index testindex --e_doc_id uuid  --m_fields field1,field2,field3
 ```
 
-INSERT TRANSFORMED DOCS
+UPSERT TRANSFORMED DOCS
 ```sh
 mongo-to-elastic-dump --m_host localhost:27017 --m_db testdb --m_collection testcoll --e_host localhost:9200 --e_index testindex --e_doc_id uuid --m_transform transform.js
 ```
