@@ -115,9 +115,15 @@ Options are:
     - Example ```--e_update_key updateKey``` | ```--e_update_key updateKey,true```
 
  - e_action ```String```
-    - Mandatory
+    - optional
     - Default: index
     - Elasticsearch action to perform on document: index OR create
+
+ - attempts ```Number```
+    - optional
+    - Default: -1
+    - Elasticsearch number of attempts to retry on failure (-1 for infinite)
+
 ##### Example
 
 UPSERT DOCS
