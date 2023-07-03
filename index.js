@@ -83,6 +83,11 @@ Flags
   .setDefault("index")
   .setDescription("elasticsearch action to perform on document (index/create)");
 
+Flags
+  .defineString("e_attempts", "tool")
+  .setDefault(-1)
+  .setDescription("elasticsearch number of attempts to retry on failure (-1 for infinite)");
+
 Flags.parse();
 
 // global
@@ -162,7 +167,8 @@ class ElasticAPI {
     }
   }
 
-  async insertDocs(docs) {
+  async insertDocs(docs, attempt = 0) {
+    checkAttempts(attempt);
     const body = [];
     docs.forEach((x) => {
       const description = { _index: Flags.get("e_index"), _id: x[Flags.get("e_doc_id")] };
@@ -185,20 +191,20 @@ class ElasticAPI {
       const resp = await this.es_client.bulk({ body: body });
       if (resp.errors) {
         logging("error", JSON.stringify(resp));
-        return this.insertDocs(docs);
+        return this.insertDocs(docs, attempt + 1);
       }
       logging("debug", `Elasticsearch upserted batch, took ${resp.took} msecs`);
       return;
     }
     catch (e) {
-      logging("error", `Elasticsearch bulk: ${err.message}`);
+      logging("error", `Elasticsearch bulk: ${e.message}`);
       this.es_client.indices.flush({ index: Flags.get("e_index") }).catch()
-      return this.insertDocs(docs);
+      return this.insertDocs(docs, attempt + 1);
     }
   }
 
-  async updateDocs(docs) {
-
+  async updateDocs(docs, attempt = 0) {
+    checkAttempts(attempt);    
     /** when e_update_key[0] is also the field with value of elastic doc id. */
     if (e_update_key[1]) {
       try {
@@ -211,15 +217,15 @@ class ElasticAPI {
         const resp = await this.es_client.bulk({ body: update_body });
         if (resp.errors) {
           logging("error", JSON.stringify(resp));
-          return this.updateDocs(docs);
+          return this.updateDocs(docs, attempt + 1);
         }
         logging("info", "Elasticsearch updated batch, took " + resp.took + " secs");
         return;
       }
       catch (e) {
-        logging("error",`Elasticsearch bulk: ${err.message}`);
+        logging("error",`Elasticsearch bulk: ${e.message}`);
         this.es_client.indices.flush({ index: Flags.get("e_index") }).catch();
-        return this.updateDocs(docs);
+        return this.updateDocs(docs, attempt + 1);
       }
     }
 
@@ -254,7 +260,7 @@ class ElasticAPI {
         const resp = await this.es_client.bulk({ body: update_body });
         if (resp.errors) {
           logging("error", JSON.stringify(resp));
-          return this.updateDocs(docs);
+          return this.updateDocs(docs, attempt + 1);
         }
         logging("info", "Elasticsearch updated batch, took " + resp.took + " secs");
         return;
@@ -262,7 +268,7 @@ class ElasticAPI {
       catch (e) {
         logging("error", `Elasticsearch bulk: ${e.message}`);
         this.es_client.indices.flush({ index: Flags.get("e_index") }).catch();
-        return this.updateDocs(docs);
+        return this.updateDocs(docs, attempt + 1);
       }
     }
   }
@@ -375,7 +381,14 @@ function logging(level, message) {
     default:
     // code block
   }
+}
 
+function checkAttempts(attempt) {
+  const e_attempts = Flags.get('e_attempts');
+  if (e_attempts != -1 && attempt > e_attempts) {
+    logging('error', 'Elasticsearch bulk: Max attempts reached');
+    process.exit(0);
+  }
 }
 
 /** Main starts from here */
